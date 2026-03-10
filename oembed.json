@@ -2,7 +2,7 @@
   "type": "rich",
   "version": "1.0",
   "title": "Test",
-  "html": "<b>hello world</b>",
+  "html": "<script>alert(document.domain)<\/script>",
   "width": 500,
   "height": 300
 }
