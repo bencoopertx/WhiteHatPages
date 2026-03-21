@@ -1,0 +1,20 @@
+{
+    "frame": {
+        "name": "Screenshots Art",
+        "version": "1",
+        "iconUrl": "https://screenshotsart.store/icon.png",
+        "homeUrl": "https://screenshotsart.store",
+        "imageUrl": "https://screenshotsart.store/image.png",
+        "splashImageUrl": "https://screenshotsart.store/splash.png",
+        "splashBackgroundColor": "#000000",
+        "webhookUrl": "https://screenshotsart.store/api/webhook",
+        "subtitle": "ScreenshotsArt",
+        "description": "Hi Screenshots Art",
+        "primaryCategory": "social"
+    },
+    "accountAssociation": {
+        "header": "eyJmaWQiOjMwNzA4MzMsInR5cGUiOiJhdXRoIiwia2V5IjoiMHg0MWZlMkZkRTc1QUE3YTU4NERhNkNkRTJEOGQ0MzJmRmY3MjZkMzdFIn0",
+        "payload": "eyJkb21haW4iOiJzY3JlZW5zaG90c2FydC5zdG9yZSJ9",
+        "signature": "diFx0R10326raFeQIxydN67uqWub8w49m+XTnlhYvMo2r1coQeV1W4hlWANllzxmdlAa2mwpQs9FDVpKum8IoBs="
+    }
+}

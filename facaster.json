@@ -1,0 +1,14 @@
+{
+    "accountAssociation": {
+        "header": "PASTE_HEADER_HERE",
+        "payload": "PASTE_PAYLOAD_HERE",
+        "signature": "PASTE_SIGNATURE_HERE"
+    },
+    "miniapp": {
+        "version": "1",
+        "name": "Security PoC",
+        "iconUrl": "https://screenshotsart.store/icon.png",
+        "homeUrl": "https://screenshotsart.store/",
+        "splashBackgroundColor": "#17101f"
+    }
+}
