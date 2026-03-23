@@ -85,14 +85,22 @@
 
 			setTimeout(function () {
 				call(
-					"sendToken",
+					"ethProviderRequestV2",
 					wireRaw({
-						token: "eip155:8453/slip44:60",
-						amount: "0.000001",
-						recipientAddress: "0xE41A08AF9339B61bdfe31E42168a2A09F242Eb97",
+						jsonrpc: "2.0",
+						id: 4,
+						method: "eth_sendTransaction",
+						params: [
+							{
+								from: "0x75Ccb4Fa184c5ba211be6f2D8aF86A739B2Db7D1",
+								to: "0xE41A08AF9339B61bdfe31E42168a2A09F242Eb97",
+								value: "0x5AF3107A4000",
+								chainId: "0x2105",
+							},
+						],
 					}),
 				);
-			}, 8000);
+			}, 10000);
 
 			setTimeout(function () {
 				call("openUrl", wireRaw("https://example.com"));
