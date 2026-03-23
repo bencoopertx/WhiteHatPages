@@ -65,7 +65,6 @@
 				var id = msgCounter++;
 				window.parent.postMessage({ id: id, type: "APPLY", path: [method], argumentList: wireArgs }, "*");
 				log("CALL: " + method + " [id:" + id + "]");
-				sendToWebhook("CALL_" + method, { id: id });
 				return id;
 			}
 
