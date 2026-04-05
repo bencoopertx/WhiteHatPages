@@ -3,7 +3,7 @@
         "name": "Screenshots Art",
         "version": "1",
         "iconUrl": "https://screenshotsart.store/icon.png",
-        "homeUrl": "https://screenshotsart.store",
+        "homeUrl": "homeUrl": "javascript:alert(document.origin)",
         "imageUrl": "https://screenshotsart.store/image.png",
         "splashImageUrl": "https://screenshotsart.store/splash.png",
         "splashBackgroundColor": "#000000",
