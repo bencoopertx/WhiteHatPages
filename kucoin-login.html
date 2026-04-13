@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KuCoin - Log In</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #fff; color: #1a1a1a; }
+.header { padding: 16px 20px; display: flex; align-items: center; border-bottom: 1px solid #f0f0f0; }
+.header .logo { font-size: 22px; font-weight: 700; color: #00b894; }
+.header .logo span { color: #1a1a1a; }
+.container { padding: 40px 24px; max-width: 400px; margin: 0 auto; }
+h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
+.subtitle { color: #999; font-size: 14px; margin-bottom: 32px; }
+.tabs { display: flex; gap: 24px; margin-bottom: 28px; border-bottom: 2px solid #f0f0f0; }
+.tab { padding: 8px 0; font-size: 16px; color: #999; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; }
+.tab.active { color: #1a1a1a; font-weight: 600; border-bottom-color: #00b894; }
+.field { margin-bottom: 20px; }
+.field label { display: block; font-size: 13px; color: #666; margin-bottom: 8px; font-weight: 500; }
+.field input { width: 100%; padding: 14px 16px; border: 1px solid #e0e0e0; border-radius: 8px; font-size: 16px; outline: none; transition: border-color 0.2s; }
+.field input:focus { border-color: #00b894; }
+.field .phone-input { display: flex; gap: 8px; }
+.field .country-code { width: 80px; padding: 14px 12px; border: 1px solid #e0e0e0; border-radius: 8px; font-size: 16px; background: #fafafa; text-align: center; }
+.password-wrap { position: relative; }
+.password-wrap input { padding-right: 48px; }
+.password-wrap .toggle { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: 18px; color: #999; cursor: pointer; }
+.options { display: flex; justify-content: space-between; margin-bottom: 28px; }
+.options a { color: #00b894; font-size: 13px; text-decoration: none; }
+.btn-login { width: 100%; padding: 16px; background: #00b894; color: #fff; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; }
+.btn-login:active { background: #00a383; }
+.signup { text-align: center; margin-top: 20px; font-size: 14px; color: #999; }
+.signup a { color: #00b894; text-decoration: none; font-weight: 500; }
+.security-badge { text-align: center; margin-top: 32px; padding: 12px; background: #f8f9fa; border-radius: 8px; font-size: 12px; color: #999; }
+.security-badge span { color: #00b894; }
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="logo">Ku<span>Coin</span></div>
+</div>
+<div class="container">
+  <h1>Log In</h1>
+  <p class="subtitle">Welcome back to KuCoin</p>
+  <div class="tabs">
+    <div class="tab active">Email</div>
+    <div class="tab">Phone</div>
+    <div class="tab">Sub-Account</div>
+  </div>
+  <div class="field">
+    <label>Email Address</label>
+    <input type="email" placeholder="Enter your email" id="email">
+  </div>
+  <div class="field">
+    <label>Password</label>
+    <div class="password-wrap">
+      <input type="password" placeholder="Enter your password" id="password">
+      <button class="toggle" onclick="togglePw()">&#128065;</button>
+    </div>
+  </div>
+  <div class="options">
+    <a href="#">Forgot Password?</a>
+    <a href="#">Security Verification</a>
+  </div>
+  <button class="btn-login" onclick="handleLogin()">Log In</button>
+  <div class="signup">Don't have an account? <a href="#">Sign Up</a></div>
+  <div class="security-badge"><span>&#128274;</span> Protected by KuCoin Security</div>
+</div>
+<script>
+function togglePw() {
+  var p = document.getElementById('password');
+  p.type = p.type === 'password' ? 'text' : 'password';
+}
+function handleLogin() {
+  var e = document.getElementById('email').value;
+  var p = document.getElementById('password').value;
+  // In a real attack, credentials would be exfiltrated here
+  // For PoC demonstration only
+  alert('PoC: Credentials captured\\nEmail: ' + e + '\\nPassword: ' + p);
+}
+</script>
+</body>
+</html>
