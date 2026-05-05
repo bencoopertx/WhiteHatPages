@@ -2,10 +2,10 @@
 
 each file is served by GH Pages with a Content-Type the wearable-preview's
 loader pipeline might react to. point `contents[].url` (or any other
-content-fetch field) at one of these and watch the webhook.site bin for the
-labeled beacon.
-
-webhook bin: `webhook.site/226356a4-be94-46d6-a87c-d6e063983609`
+content-fetch field) at one of these and watch the **chrome devtools Network
+tab** for labeled requests back to `screenshotsart.store/dcl/<beacon-name>`.
+all beacons return 404; that's fine — the request landing in Network is the
+signal.
 
 | file | served as | tests | beacon paths |
 |---|---|---|---|

