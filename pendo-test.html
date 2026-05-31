@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Pendo Test Target — bc2022</title>
+
+  <!-- ───────────────────────────────────────────────────────────────────
+       Pendo snippet (publicAppId d38cda30-4e02-45ea-bbb4-b8a8932c3801).
+       This is the standard SPA-style install per Pendo's instructions.
+       Loads pendo.js from cdn.pendo.io and queues api calls until ready.
+       ─────────────────────────────────────────────────────────────────── -->
+  <script>
+    (function(publicAppId){
+      (function(p,e,n,d,o){var v,w,x,y,z;o=p[d]=p[d]||{};o._q=o._q||[];
+      v=['initialize','identify','updateOptions','pageLoad','track','trackAgent'];
+      for(w=0,x=v.length;w<x;++w)(function(m){
+        o[m]=o[m]||function(){o._q[m===v[0]?'unshift':'push']([m].concat([].slice.call(arguments,0)));};
+      })(v[w]);
+      y=e.createElement(n);y.async=!0;
+      y.src='https://cdn.pendo.io/agent/static/'+publicAppId+'/pendo.js';
+      z=e.getElementsByTagName(n)[0];z.parentNode.insertBefore(y,z);
+      })(window,document,'script','pendo');
+    })('d38cda30-4e02-45ea-bbb4-b8a8932c3801');
+  </script>
+
+  <!-- Initialize after DOM is ready, identifying as the bc2022 test account.
+       In a real SPA you'd call this after your auth code resolves the user.
+       Static HTML, so we just call it when the DOM is parsed. -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      if (window.pendo && typeof window.pendo.initialize === 'function') {
+        window.pendo.initialize({
+          visitor: {
+            id:        'bc2022@intigriti.me',
+            email:     'bc2022@intigriti.me',
+            full_name: 'Ben Testing',
+            role:      'tester'
+          },
+          account: {
+            id:        'Ben_s_Testing_Co',
+            name:      'Ben_s_Testing_Co',
+            is_paying: false,
+            planLevel: 'Free'
+          }
+        });
+        console.log('[pendo] initialize() queued');
+      }
+    });
+  </script>
+
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 760px; margin: 2rem auto; padding: 0 1rem; color: #222; }
+    header { border-bottom: 1px solid #ddd; padding-bottom: 1rem; margin-bottom: 1rem; }
+    h1 { margin: 0; font-size: 1.5rem; }
+    nav { margin: 1rem 0; }
+    nav a { margin-right: 1rem; color: #06c; }
+    section { margin: 1.5rem 0; padding: 1rem; background: #f6f8fa; border-radius: 6px; }
+    button { padding: .5rem 1rem; background: #06c; color: white; border: 0; border-radius: 4px; cursor: pointer; }
+    button:hover { background: #048; }
+    input, textarea { padding: .4rem; border: 1px solid #ccc; border-radius: 4px; width: 100%; box-sizing: border-box; }
+    label { display: block; margin: .5rem 0 .25rem; font-size: .9rem; color: #555; }
+    .row { display: flex; gap: 1rem; align-items: center; margin-top: .75rem; }
+    code { background: #eee; padding: .1rem .3rem; border-radius: 3px; font-size: .85rem; }
+  </style>
+</head>
+<body>
+
+<!--
+  Why this page exists
+  ─────────────────────
+  A clean, predictable target for Pendo to record / build guides against,
+  so we can interact with Pendo's authoring tools (Guide Designer, Resource
+  Center, NPS poll, Feedback form, etc.) as a real customer and observe what
+  happens when stored content is rendered back into the page.
+
+  Each element here has a stable id / data attribute so Pendo's Visual Design
+  Studio can pin a guide to it. The page intentionally stays minimal so the
+  Pendo tagger highlights show clearly.
+-->
+
+<header>
+  <h1>Pendo Test Target</h1>
+  <p>Page used by <code>bc2022@intigriti.me</code> to interact with Pendo as a real customer would.</p>
+</header>
+
+<nav id="primary-nav">
+  <a href="#home"    data-pendo-target="home">Home</a>
+  <a href="#about"   data-pendo-target="about">About</a>
+  <a href="#contact" data-pendo-target="contact">Contact</a>
+  <a href="#help"    data-pendo-target="help">Help</a>
+</nav>
+
+<section id="home" data-page="home">
+  <h2>Home</h2>
+  <p>Top-level landing surface. This is where guides typically open on first-visit.</p>
+  <button id="cta-primary" data-pendo-target="cta-primary">Primary CTA</button>
+</section>
+
+<section id="profile" data-page="profile">
+  <h2>Profile</h2>
+  <p>Editable profile fields — give Pendo's authoring tools something to inspect.</p>
+  <label for="display-name">Display name</label>
+  <input id="display-name" type="text" placeholder="Your name" data-pendo-target="display-name">
+  <label for="bio">Bio</label>
+  <textarea id="bio" rows="3" placeholder="Short bio…" data-pendo-target="bio"></textarea>
+  <div class="row">
+    <button id="save-profile" data-pendo-target="save-profile">Save profile</button>
+  </div>
+</section>
+
+<section id="feedback" data-page="feedback">
+  <h2>Feedback</h2>
+  <p>Where Pendo's Feedback widget / NPS poll would mount in a real app.</p>
+  <button id="open-feedback" data-pendo-target="open-feedback">Send feedback</button>
+</section>
+
+<section id="install-state">
+  <h2>Pendo install state</h2>
+  <p>Open DevTools console to see whether pendo.js loaded. If installed correctly, you should see <code>[pendo] initialize() queued</code> followed by the Pendo agent boot messages.</p>
+  <p>You can verify in DevTools with <code>typeof window.pendo</code> (should be <code>"object"</code>) and <code>pendo.visitorId</code>.</p>
+</section>
+
+</body>
+</html>
