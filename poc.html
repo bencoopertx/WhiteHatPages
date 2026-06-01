@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Pendo — Session Verified</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f5f6fa;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    .card {
+      background: #fff;
+      border-radius: 10px;
+      border-top: 5px solid #ec2059;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.12);
+      padding: 48px 56px;
+      max-width: 480px;
+      width: 100%;
+      text-align: center;
+    }
+    .logo { font-size: 28px; font-weight: 700; color: #ec2059; margin-bottom: 8px; }
+    .logo span { color: #1a1a2e; }
+    h1 { font-size: 20px; color: #1a1a2e; margin-bottom: 12px; font-weight: 600; }
+    p { color: #666; font-size: 14px; line-height: 1.6; margin-bottom: 24px; }
+    .badge {
+      display: inline-block;
+      background: #fff3cd;
+      border: 1px solid #ffc107;
+      border-radius: 6px;
+      padding: 12px 20px;
+      font-size: 13px;
+      color: #856404;
+      font-weight: 600;
+      margin-bottom: 24px;
+    }
+    .poc-note {
+      background: #fff0f3;
+      border: 1px solid #ec2059;
+      border-radius: 6px;
+      padding: 16px 20px;
+      font-size: 13px;
+      color: #b00020;
+      text-align: left;
+      line-height: 1.7;
+    }
+    .poc-note strong { display: block; margin-bottom: 4px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">pendo<span>.</span></div>
+    <h1>You have been redirected.</h1>
+    <p>This page demonstrates a stored CSS injection vulnerability in Pendo Guides.<br>
+    A guide author was able to hijack this click.</p>
+
+    <div class="badge">⚠️ Intigriti Demo PoC — CSS Injection → Click Hijack</div>
+
+    <div class="poc-note">
+      <strong>What just happened:</strong>
+      A Pendo guide author injected CSS via the <code>pseudoStyles</code> field of a guide's
+      <code>buildingBlocks</code> payload. The CSS rendered a fake "session expired" modal
+      over the Pendo admin UI, overlaid an invisible real button on top of the fake
+      "Verify" button, and redirected the victim's click to this page.
+      No JavaScript was required.
+    </div>
+  </div>
+</body>
+</html>
